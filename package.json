@@ -1,6 +1,6 @@
 {
   "name": "homebridge-soundtouch-volume",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Homebridge SoundTouch with volume",
   "main": "index.js",
   "keywords": [

@@ -1,10 +1,3 @@
-/*
-const api = new SoundTouchAPI({
-  name: "Salon",
-  mac: "7c:01:0a:75:e9:d8",
-  ip: "192.168.0.22",
-});
-*/
 const SoundTouchAPI = require('./api');
 const TYPES = require('./utils/types');
 let Service, Characteristic;
@@ -295,5 +288,3 @@ SoundTouchAccessory.prototype._switchPresetServices = function(index) {
     service.getCharacteristic(Characteristic.On).updateValue(service.subtype === type);
   }
 }
-
-
