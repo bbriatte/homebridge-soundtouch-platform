@@ -229,6 +229,11 @@ SoundTouchAccessory.prototype._getPreset = function(callback) {
   }
   this.api.getPresets((json) => {
     this.api.getNowPlaying((jsonNowPlaying) => {
+      const source = jsonNowPlaying.nowPlaying.source;
+      if(source === TYPES.SOURCES_STATUS.UNAVAILABLE || source === TYPES.SOURCES_STATUS.STANDBY) {
+        callback(null, -1);
+        return;
+      }
       const presets = json.presets.preset;
       for (const idx in presets) {
         const preset = presets[idx];
