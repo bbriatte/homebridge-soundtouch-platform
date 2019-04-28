@@ -1,8 +1,9 @@
 {
   "name": "homebridge-soundtouch-volume",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Homebridge SoundTouch with volume",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.js",
   "keywords": [
     "homebridge-plugin",
     "soundtouch",
@@ -14,17 +15,15 @@
     "url": "git://github.com/bbriatte/homebridge-soundtouch-volume.git"
   },
   "engines": {
-    "node": ">=9.3.0",
-    "homebridge": ">=0.4.45"
+    "homebridge": ">=0.4.48"
   },
   "author": "bbriatte",
-  "license": "ISC",
+  "license": "BSD",
   "dependencies": {
-    "request": "^2.88.0",
-    "websocket": "^1.0.28",
-    "xml2json": "^0.11.2"
+    "soundtouch-api": "^1.0.6"
   },
   "devDependencies": {
+    "@types/node": "^11.13.8",
     "homebridge": "^0.4.48"
   }
 }

@@ -19,9 +19,8 @@ Example config.json:
         "name": "Speaker Bathroom",
         "room": "Bathroom",
         "ip": "<ip>",
-        "mac_address": "XX:XX:XX:XX:XX:XX",
-        "unmute_volume": 40,
-        "max_volume": 80
+        "unmuteVolume": 40,
+        "maxVolume": 80
     }
 ],
 ```
@@ -34,9 +33,8 @@ Example config.json for multiple speakers and presets:
         "name": "Speaker Bathroom",
         "room": "Bathroom",
         "ip": "<ip>",
-        "mac_address": "XX:XX:XX:XX:XX:XX",
-        "unmute_volume": 40,
-        "max_volume": 80,
+        "unmuteVolume": 40,
+        "maxVolume": 80,
         "presets": [
             {
                 "name": "Radio 1",
@@ -48,8 +46,6 @@ Example config.json for multiple speakers and presets:
 	    "accessory": "SoundTouchVolume",
 	    "name": "Speaker Kitchen",
 	    "room": "Kitchen",
-	    "ip": "<ip>",
-	    "mac_address": "XX:XX:XX:XX:XX:XX",
 	    "presets": [
 	        {
 	            "name": "Speaker Kitchen TV",
@@ -68,13 +64,12 @@ Example config.json for multiple speakers and presets:
 * `accessory`: Must always be **SoundTouchVolume** 
 * `name`: The name you want to use to control the SoundTouch.
 * `room`: Should match exactly with the name of the SoundTouch device.
-* `ip`: The ip address of your device on your network.
-* `mac_address`: The mac address used on the device.
 
 *Optional fields*
 
-* `unmute_volume`: The expected volume that you want back to mute mode with 0 volume. **default: 35%**
-* `max_volume`: The maximum volume of the device. **default: 100%**
+* `ip`: The ip address of your device on your network.
+* `unmuteVolume`: The expected volume that you want back to mute mode with 0 volume. **default: 35%**
+* `maxVolume`: The maximum volume of the device. **default: 100%**
 * `presets`: Contains all presets action that you want to trigger using HomeKit on your device. Adds a lighthub for each preset with the given `name
  Preset index start from 0 to 6 included. The 0 is a special preset used to restore the tv mode. 
 
