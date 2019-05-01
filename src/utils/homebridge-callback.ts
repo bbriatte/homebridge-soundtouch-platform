@@ -1,3 +1,7 @@
+export interface Homebridge {
+    
+}
+
 export function callbackify(func: (...args: any[]) => Promise<any>): Function {
     return (...args: any[]) => {
         const onlyArgs: any[] = [];
