@@ -1,5 +1,5 @@
 import {AccessoryConfig, PresetConfig} from './accessory-config';
-import {API, APIDiscovery, Info} from 'soundtouch-api';
+import {API, APIDiscovery, Info, compactMap} from 'soundtouch-api';
 import {apiNotFoundWithName} from './errors';
 
 export interface SoundTouchPreset {
@@ -42,7 +42,7 @@ export async function deviceFromConfig(config: AccessoryConfig): Promise<SoundTo
 
 async function _availablePresets(api: API, configPresets: PresetConfig[]): Promise<SoundTouchPreset[]> {
     const presets = await api.getPresets();
-    const availablePresets: SoundTouchPreset[] = presets.map((preset) => {
+    return compactMap(presets, (preset) => {
         const presetConfig: PresetConfig = configPresets.find((p) => p.index === preset.id) || {index: preset.id};
         if (presetConfig.enabled === false) {
             return undefined;
@@ -52,7 +52,6 @@ async function _availablePresets(api: API, configPresets: PresetConfig[]): Promi
             index: preset.id
         };
     });
-    return availablePresets.filter((p) => p !== undefined);
 }
 
 async function _deviceFromApi(api: API, info: Info, config: AccessoryConfig): Promise<SoundTouchDevice> {
