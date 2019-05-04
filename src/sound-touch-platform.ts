@@ -2,6 +2,7 @@ import {PlatformConfig} from './platform-config';
 import {AccessoryConfig} from './accessory-config';
 import {SoundTouchAccessory} from './sound-touch-accessory';
 import {deviceFromConfig, searchAllDevices, SoundTouchDevice} from './sound-touch-device';
+import {Logger} from './utils';
 
 export enum HomebridgeInfo {
     plugin = 'homebridge-soundtouch-platform',
@@ -10,18 +11,19 @@ export enum HomebridgeInfo {
 
 export class SoundTouchPlatform {
 
-    private readonly log: Function;
+    private readonly log: Logger;
     private readonly config: PlatformConfig;
     private readonly _accessories: any[]; // homebridge registry
     private accessories: SoundTouchAccessory[];
 
-    constructor(log: Function, config: PlatformConfig, homebridge: any) {
+    constructor(log: Logger, config: PlatformConfig, homebridge: any) {
         this.log = log;
         this.config = config;
         this._accessories = [];
         homebridge.on('didFinishLaunching', async () => {
             if(config) {
                 this.accessories = await this.searchAccessories(homebridge);
+                this.accessories.forEach((acc) => this.log(`Found accessory with name '${acc.device.name}'`));
             }
         });
     }
@@ -32,12 +34,18 @@ export class SoundTouchPlatform {
             const devices = await searchAllDevices(configAccessories);
             return devices.map((device) => this.accessoryFromDevice(device, homebridge));
         }
-        return Promise.all(configAccessories.map((ac) => this.findAccessory(ac, homebridge)));
+        const accessories = await Promise.all(configAccessories.map((ac) => this.findAccessory(ac, homebridge)));
+        return accessories.filter((acc) => acc !== undefined);
     }
 
-    private async findAccessory(config: AccessoryConfig, homebridge: any): Promise<SoundTouchAccessory> {
-        const device = await deviceFromConfig(config);
-        return this.accessoryFromDevice(device, homebridge);
+    private async findAccessory(config: AccessoryConfig, homebridge: any): Promise<SoundTouchAccessory | undefined> {
+        try {
+            const device = await deviceFromConfig(config);
+            return this.accessoryFromDevice(device, homebridge);
+        } catch(err) {
+            this.log.error(err);
+            return undefined;
+        }
     }
 
     private accessoryFromDevice(device: SoundTouchDevice, homebridge: any): SoundTouchAccessory {

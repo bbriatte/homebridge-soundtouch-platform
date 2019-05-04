@@ -1,5 +1,6 @@
 import {AccessoryConfig, PresetConfig} from './accessory-config';
 import {API, APIDiscovery, Info} from 'soundtouch-api';
+import {apiNotFoundWithName} from './errors';
 
 export interface SoundTouchPreset {
     readonly name: string;
@@ -32,6 +33,9 @@ export async function deviceFromConfig(config: AccessoryConfig): Promise<SoundTo
         api = new API(config.ip, config.port);
     } else if(config.room) {
         api = await APIDiscovery.find(config.room);
+        if(!api) {
+            throw apiNotFoundWithName(config.name);
+        }
     }
     return _deviceFromApi(api, await api.getInfo(), config);
 }

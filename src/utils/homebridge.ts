@@ -1,5 +1,10 @@
-export interface Homebridge {
-    
+export interface Logger extends Function {
+    readonly debug: Function;
+    readonly info: Function;
+    readonly warn: Function;
+    readonly error: Function;
+    readonly log: Function;
+    readonly prefix: string;
 }
 
 export function callbackify(func: (...args: any[]) => Promise<any>): Function {

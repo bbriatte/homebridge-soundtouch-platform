@@ -1,1 +1,1 @@
-export * from './homebridge-callback';
+export * from './homebridge';
