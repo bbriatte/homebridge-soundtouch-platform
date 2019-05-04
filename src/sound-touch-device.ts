@@ -1,10 +1,16 @@
-import {AccessoryConfig, PresetConfig} from './accessory-config';
-import {API, APIDiscovery, Info, compactMap} from 'soundtouch-api';
+import {AccessoryConfig, PresetConfig, ProductConfig} from './accessory-config';
+import {API, APIDiscovery, compactMap, Info, SourceStatus} from 'soundtouch-api';
 import {apiNotFoundWithName} from './errors';
 
 export interface SoundTouchPreset {
     readonly name: string;
     readonly index: number;
+}
+
+export interface SoundTouchProduct {
+    readonly name: string;
+    readonly account: string;
+    readonly enabled: boolean;
 }
 
 export interface SoundTouchDevice {
@@ -16,6 +22,7 @@ export interface SoundTouchDevice {
     readonly maxVolume: number;
     readonly unmuteVolume: number;
     readonly presets: SoundTouchPreset[];
+    readonly products: SoundTouchProduct[];
 }
 
 export async function searchAllDevices(configAccessories: AccessoryConfig[]): Promise<SoundTouchDevice[]> {
@@ -57,12 +64,8 @@ async function _availablePresets(api: API, configPresets: PresetConfig[]): Promi
 async function _deviceFromApi(api: API, info: Info, config: AccessoryConfig): Promise<SoundTouchDevice> {
     const displayName = config.name || info.name;
     const component = info.components.find((c) => c.serialNumber.toLowerCase() === info.deviceId.toLowerCase());
-    const configPresets = config.presets || [];
-    const presets = await _availablePresets(api, configPresets);
-    const productPreset = _productPreset(displayName + ' TV', configPresets);
-    if(productPreset) {
-        presets.push(productPreset);
-    }
+    const presets = await _availablePresets(api, config.presets || []);
+    const products = await _availableProducts(api, displayName, config.products || []);
     return {
         api: api,
         name: displayName,
@@ -71,22 +74,20 @@ async function _deviceFromApi(api: API, info: Info, config: AccessoryConfig): Pr
         version: component ? component.softwareVersion : undefined,
         maxVolume: config.maxVolume || 100,
         unmuteVolume: config.unmuteVolume || 35,
-        presets: presets
+        presets: presets,
+        products: products
     };
 }
 
-function _productPreset(name: string, configPresets: PresetConfig[]): SoundTouchPreset {
-    const productConfig: PresetConfig = configPresets.find((p) => p.index === 0);
-    if(productConfig) {
-        if(!productConfig.enabled) {
-            return undefined;
-        }
-        if(productConfig.name) {
-            name = productConfig.name;
-        }
-    }
-    return {
-        name,
-        index: 0
-    }
+async function _availableProducts(api: API, deviceName: string, configProducts: ProductConfig[]): Promise<SoundTouchProduct[]> {
+    const sources = await api.getSources();
+    const productSouces = sources.items.filter((src) => src.status === SourceStatus.ready && src.source === 'PRODUCT');
+    return productSouces.map((ps) => {
+        const productConfig: ProductConfig = configProducts.find((p) => p.account === ps.sourceAccount) || {account: ps.sourceAccount};
+        return {
+            name: productConfig.name || `${deviceName} ${ps.name}`,
+            account: productConfig.account,
+            enabled: productConfig.enabled !== false
+        };
+    });
 }

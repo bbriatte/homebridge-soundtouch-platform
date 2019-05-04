@@ -2,6 +2,11 @@ import {KeyValue, SourceStatus} from 'soundtouch-api';
 import {callbackify} from './utils';
 import {SoundTouchDevice} from './sound-touch-device';
 
+interface SoundTouchSelectedSource {
+    readonly productAccount?: string;
+    readonly presetIndex?: number;
+}
+
 export class SoundTouchAccessory {
 
     readonly device: SoundTouchDevice;
@@ -11,6 +16,7 @@ export class SoundTouchAccessory {
     private readonly onService: any;
     private readonly volumeService: any;
     private readonly presetServices: any[];
+    private readonly productServices: any[];
     private readonly informationService: any;
 
     private static readonly presetValues: KeyValue[] = [
@@ -31,9 +37,10 @@ export class SoundTouchAccessory {
         this.onService = this.initOnService();
         this.volumeService = this.initVolumeService();
         this.presetServices = this.initPresetServices();
+        this.productServices = this.initProductServices();
     }
 
-    private initOnService() {
+    private initOnService(): any {
         const Service = this.homebridge.hap.Service;
         const Characteristic = this.homebridge.hap.Characteristic;
         const onService = this.getAccessoryService(Service.Switch, this.accessory.displayName, 'onService');
@@ -44,7 +51,7 @@ export class SoundTouchAccessory {
         return onService;
     }
 
-    private initVolumeService() {
+    private initVolumeService(): any {
         const Service = this.homebridge.hap.Service;
         const Characteristic = this.homebridge.hap.Characteristic;
         const volumeService = this.getAccessoryService(Service.Lightbulb, this.accessory.displayName+ ' Volume', 'volumeService');
@@ -65,42 +72,70 @@ export class SoundTouchAccessory {
         return volumeService;
     }
 
-    private initPresetServices() {
+    private initPresetServices(): any[] {
         const Service = this.homebridge.hap.Service;
         const Characteristic = this.homebridge.hap.Characteristic;
         const presetServices = [];
-        for(let i = 0; i <= 6; i++) {
+        for(let i = 1; i <= 6; i++) {
             const presetType = `preset${i}Service`;
             const preset = this.device.presets.find((p) => p.index === i);
             if(preset === undefined) {
-                const oldService = this.accessory.getServiceByUUIDAndSubType(Service.Switch, presetType);
-                if(oldService !== undefined) {
-                    this.accessory.removeService(oldService);
-                }
-            } else {
-                const service = this.getAccessoryService(Service.Switch, preset.name, presetType);
-                const characteristic = service.getCharacteristic(Characteristic.On);
-                characteristic.on('get', async (callback) => {
-                    try {
-                        callback(undefined, await this.isSelectedPreset(preset.index));
-                    } catch(err) {
-                        callback(err);
-                    }
-                });
-                characteristic.on('set', async (on, callback) => {
-                    try {
-                        callback(undefined, await this.setPreset(on, preset.index));
-                    } catch(err) {
-                        callback(err);
-                    }
-                });
-                presetServices.push(service);
+                this.removeUnusedService(Service.Switch, presetType);
+                continue;
             }
+            const service = this.getAccessoryService(Service.Switch, preset.name, presetType);
+            const characteristic = service.getCharacteristic(Characteristic.On);
+            characteristic.on('get', async (callback) => {
+                try {
+                    callback(undefined, await this.isSelectedPreset(preset.index));
+                } catch(err) {
+                    callback(err);
+                }
+            });
+            characteristic.on('set', async (on, callback) => {
+                try {
+                    callback(undefined, await this.setPreset(on, preset.index));
+                } catch(err) {
+                    callback(err);
+                }
+            });
+            presetServices.push(service);
         }
         return presetServices;
     }
 
-    private initInformationService() {
+    private initProductServices(): any[] {
+        const Service = this.homebridge.hap.Service;
+        const Characteristic = this.homebridge.hap.Characteristic;
+        const productServices = [];
+        for(let product of this.device.products) {
+            const productType = `product${product.account}Service`;
+            if(product.enabled === false) {
+                this.removeUnusedService(Service.Switch, productType);
+                continue;
+            }
+            const service = this.getAccessoryService(Service.Switch, product.name, productType);
+            const characteristic = service.getCharacteristic(Characteristic.On);
+            characteristic.on('get', async (callback) => {
+                try {
+                    callback(undefined, await this.isSelectedProduct(product.account));
+                } catch(err) {
+                    callback(err);
+                }
+            });
+            characteristic.on('set', async (on, callback) => {
+                try {
+                    callback(undefined, await this.setProduct(on, product.account));
+                } catch(err) {
+                    callback(err);
+                }
+            });
+            productServices.push(service);
+        }
+        return productServices;
+    }
+
+    private initInformationService(): any {
         const Service = this.homebridge.hap.Service;
         const Characteristic = this.homebridge.hap.Characteristic;
         const informationService = this.accessory.getService(Service.AccessoryInformation);
@@ -128,22 +163,18 @@ export class SoundTouchAccessory {
                 const success = await this.device.api.pressKey(KeyValue.power);
                 if(success) {
                     await new Promise((resolve => setTimeout(resolve, 500)));
-                    const selectedPreset = await this.getSelectedPreset();
-                    if(selectedPreset !== -1) {
-                        this.switchPresetService(true, selectedPreset);
-                    }
-                    this.volumeService.getCharacteristic(Characteristic.On).updateValue(true);
+                    const selectedSource = await this.getSelectedSource();
+                    this.switchSelectedSource(on, selectedSource);
+                    this.volumeService.getCharacteristic(Characteristic.On).updateValue(on);
                 }
                 return success;
             }
         } else if(!on) {
-            const selectedPreset = await this.getSelectedPreset();
+            const selectedSource = await this.getSelectedSource();
             const success = await this.device.api.pressKey(KeyValue.power);
             if(success) {
-                if(selectedPreset !== -1) {
-                    this.switchPresetService(false, selectedPreset);
-                }
-                this.volumeService.getCharacteristic(Characteristic.On).updateValue(false);
+                this.switchSelectedSource(on, selectedSource);
+                this.volumeService.getCharacteristic(Characteristic.On).updateValue(on);
             }
             return success;
         }
@@ -170,7 +201,7 @@ export class SoundTouchAccessory {
         } else if(unmute) {
             isOn = await this.device.api.pressKey(KeyValue.power);
             if(isOn) {
-                this.onService.getCharacteristic(Characteristic.On).updateValue(true);
+                this.onService.getCharacteristic(Characteristic.On).updateValue(isOn);
             }
         }
         return false;
@@ -192,39 +223,48 @@ export class SoundTouchAccessory {
         return this.device.api.setVolume(volume);
     }
 
-    async getSelectedPreset(): Promise<number> {
+    async getSelectedSource(): Promise<SoundTouchSelectedSource | undefined> {
         const nowPlaying = await this.device.api.getNowPlaying();
         if(nowPlaying.source === SourceStatus.standBy) {
-            return -1;
+            return undefined;
+        }
+        if(nowPlaying.source === 'PRODUCT') {
+            for(const product of this.device.products) {
+                if(product.enabled === false) {
+                    continue;
+                }
+                if (product.account === nowPlaying.sourceAccount) {
+                    return {
+                        productAccount: product.account
+                    };
+                }
+            }
+            return undefined;
         }
         const presets = await this.device.api.getPresets();
         for(const preset of presets) {
             if (JSON.stringify(preset.contentItem) === JSON.stringify(nowPlaying.contentItem)) {
-                return preset.id;
+                return {
+                    presetIndex: preset.id
+                }
             }
         }
-        return nowPlaying.source === 'PRODUCT' ? 0 : -1;
+        return undefined;
     }
 
     async isSelectedPreset(index: number): Promise<boolean> {
-        const selectedPreset = await this.getSelectedPreset();
-        return selectedPreset === index;
+        const selectedPreset = await this.getSelectedSource();
+        return selectedPreset !== undefined && selectedPreset.presetIndex === index;
     }
 
     async setPreset(on: boolean, index: number): Promise<boolean> {
         const Characteristic = this.homebridge.hap.Characteristic;
         let success = false;
         if(on) {
-            const selectedPreset = await this.getSelectedPreset();
-            if(index === 0) { // special preset select tv
-                success = await this.device.api.selectSource('PRODUCT', 'TV');
-            } else {
-                success = await this.device.api.pressKey(SoundTouchAccessory.presetValues[index - 1]);
-            }
+            const selectedSource = await this.getSelectedSource();
+            success = await this.device.api.pressKey(SoundTouchAccessory.presetValues[index - 1]);
             if(success) {
-                if(selectedPreset !== -1) {
-                    this.switchPresetService(false, selectedPreset);
-                }
+                this.switchSelectedSource(false, selectedSource);
                 this.volumeService.getCharacteristic(Characteristic.On).updateValue(true);
                 this.onService.getCharacteristic(Characteristic.On).updateValue(true);
             }
@@ -237,15 +277,64 @@ export class SoundTouchAccessory {
         return success;
     }
 
-    private switchPresetService(on: boolean, index: number): void {
+    private switchSelectedSource(on: boolean, selectedSource?: SoundTouchSelectedSource): void {
+        if(selectedSource) {
+            if(selectedSource.productAccount !== undefined) {
+                this.switchProductService(on, selectedSource.productAccount);
+            } else if(selectedSource.presetIndex !== undefined) {
+                this.switchPresetService(on, selectedSource.presetIndex);
+            }
+        }
+    }
+
+    private switchService(on: boolean, type: string, services: any[]) {
         const Characteristic = this.homebridge.hap.Characteristic;
-        const type = `preset${index}Service`;
-        for(const service of this.presetServices) {
+        for(const service of services) {
             if(service.subtype === type) {
                 service.getCharacteristic(Characteristic.On).updateValue(on);
                 return;
             }
         }
+    }
+
+    private removeUnusedService(type: any, subType: string) {
+        const oldService = this.accessory.getServiceByUUIDAndSubType(type, subType);
+        if(oldService !== undefined) {
+            this.accessory.removeService(oldService);
+        }
+    }
+
+    private switchPresetService(on: boolean, index: number): void {
+        this.switchService(on, `preset${index}Service`, this.presetServices);
+    }
+
+    private switchProductService(on: boolean, account: string): void {
+        this.switchService(on, `product${account}Service`, this.productServices);
+    }
+
+    private async isSelectedProduct(account: string): Promise<boolean> {
+        const selectedSource = await this.getSelectedSource();
+        return selectedSource !== undefined && selectedSource.productAccount === account;
+    }
+
+    private async setProduct(on: boolean, account: string): Promise<boolean> {
+        const Characteristic = this.homebridge.hap.Characteristic;
+        let success = false;
+        if(on) {
+            const selectedSource = await this.getSelectedSource();
+            success = await this.device.api.selectSource('PRODUCT', account);
+            if(success) {
+                this.switchSelectedSource(false, selectedSource);
+                this.volumeService.getCharacteristic(Characteristic.On).updateValue(true);
+                this.onService.getCharacteristic(Characteristic.On).updateValue(true);
+            }
+        } else {
+            success = await this.setOn(on);
+            if(success) {
+                this.onService.getCharacteristic(Characteristic.On).updateValue(false);
+            }
+        }
+        return success;
     }
 
     private getAccessoryService(serviceType: any, displayName: string, subType: string): any {
