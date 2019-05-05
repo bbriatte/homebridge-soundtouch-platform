@@ -1,14 +1,16 @@
 import {KeyValue, SourceStatus} from 'soundtouch-api';
-import {callbackify} from './utils';
+import {callbackify, Logger} from './utils';
 import {SoundTouchDevice} from './sound-touch-device';
 
 interface SoundTouchSelectedSource {
-    readonly productAccount?: string;
+    readonly source?: string;
+    readonly account?: string;
     readonly presetIndex?: number;
 }
 
 export class SoundTouchAccessory {
 
+    readonly log: Logger;
     readonly device: SoundTouchDevice;
     readonly accessory: any;
     readonly homebridge: any;
@@ -16,7 +18,7 @@ export class SoundTouchAccessory {
     private readonly onService: any;
     private readonly volumeService: any;
     private readonly presetServices: any[];
-    private readonly productServices: any[];
+    private readonly sourceServices: any[];
     private readonly informationService: any;
 
     private static readonly presetValues: KeyValue[] = [
@@ -28,7 +30,8 @@ export class SoundTouchAccessory {
         KeyValue.preset6
     ];
 
-    constructor(device: SoundTouchDevice, accessory: any, homebridge: any) {
+    constructor(log: Logger, device: SoundTouchDevice, accessory: any, homebridge: any) {
+        this.log = log;
         this.device = device;
         this.accessory = accessory;
         this.homebridge = homebridge;
@@ -37,7 +40,9 @@ export class SoundTouchAccessory {
         this.onService = this.initOnService();
         this.volumeService = this.initVolumeService();
         this.presetServices = this.initPresetServices();
-        this.productServices = this.initProductServices();
+        this.sourceServices = this.initSourceServices();
+
+        this.log(`Found device [${device.name}]`);
     }
 
     private initOnService(): any {
@@ -77,7 +82,7 @@ export class SoundTouchAccessory {
         const Characteristic = this.homebridge.hap.Characteristic;
         const presetServices = [];
         for(let i = 1; i <= 6; i++) {
-            const presetType = `preset${i}Service`;
+            const presetType = _presetIndexToServiceType(i);
             const preset = this.device.presets.find((p) => p.index === i);
             if(preset === undefined) {
                 this.removeUnusedService(Service.Switch, presetType);
@@ -104,35 +109,35 @@ export class SoundTouchAccessory {
         return presetServices;
     }
 
-    private initProductServices(): any[] {
+    private initSourceServices(): any[] {
         const Service = this.homebridge.hap.Service;
         const Characteristic = this.homebridge.hap.Characteristic;
-        const productServices = [];
-        for(let product of this.device.products) {
-            const productType = `product${product.account}Service`;
-            if(product.enabled === false) {
-                this.removeUnusedService(Service.Switch, productType);
+        const sourceServices = [];
+        for(let src of this.device.sources) {
+            const sourceType = _sourceToServiceType(src.source, src.account);
+            if(src.enabled === false) {
+                this.removeUnusedService(Service.Switch, sourceType);
                 continue;
             }
-            const service = this.getAccessoryService(Service.Switch, product.name, productType);
+            const service = this.getAccessoryService(Service.Switch, src.name, sourceType);
             const characteristic = service.getCharacteristic(Characteristic.On);
             characteristic.on('get', async (callback) => {
                 try {
-                    callback(undefined, await this.isSelectedProduct(product.account));
+                    callback(undefined, await this.isSelectedSource(src.source, src.account));
                 } catch(err) {
                     callback(err);
                 }
             });
             characteristic.on('set', async (on, callback) => {
                 try {
-                    callback(undefined, await this.setProduct(on, product.account));
+                    callback(undefined, await this.setSource(on, src.source, src.account));
                 } catch(err) {
                     callback(err);
                 }
             });
-            productServices.push(service);
+            sourceServices.push(service);
         }
-        return productServices;
+        return sourceServices;
     }
 
     private initInformationService(): any {
@@ -162,6 +167,7 @@ export class SoundTouchAccessory {
             if(on) {
                 const success = await this.device.api.pressKey(KeyValue.power);
                 if(success) {
+                    this.log(`[${this.device.name}] Turn on`);
                     await new Promise((resolve => setTimeout(resolve, 500)));
                     const selectedSource = await this.getSelectedSource();
                     this.switchSelectedSource(on, selectedSource);
@@ -173,6 +179,7 @@ export class SoundTouchAccessory {
             const selectedSource = await this.getSelectedSource();
             const success = await this.device.api.pressKey(KeyValue.power);
             if(success) {
+                this.log(`[${this.device.name}] Turn off`);
                 this.switchSelectedSource(on, selectedSource);
                 this.volumeService.getCharacteristic(Characteristic.On).updateValue(on);
             }
@@ -196,11 +203,13 @@ export class SoundTouchAccessory {
         if(isOn) {
             const volume = await this.device.api.getVolume();
             if((unmute && volume.isMuted) || (!unmute && !volume.isMuted)) {
+                this.log(`[${this.device.name}] ${unmute ? 'Unmuted' : 'Muted'}`);
                 return this.device.api.pressKey(KeyValue.mute);
             }
         } else if(unmute) {
             isOn = await this.device.api.pressKey(KeyValue.power);
             if(isOn) {
+                this.log(`[${this.device.name}] Turn on`);
                 this.onService.getCharacteristic(Characteristic.On).updateValue(isOn);
             }
         }
@@ -220,25 +229,13 @@ export class SoundTouchAccessory {
         if(volume === maxValue && oldVolume <= maxValue / 2) {
             volume = Math.max(oldVolume, this.device.unmuteVolume);
         }
+        this.log(`[${this.device.name}] Volume change to ${volume}`);
         return this.device.api.setVolume(volume);
     }
 
     async getSelectedSource(): Promise<SoundTouchSelectedSource | undefined> {
         const nowPlaying = await this.device.api.getNowPlaying();
         if(nowPlaying.source === SourceStatus.standBy) {
-            return undefined;
-        }
-        if(nowPlaying.source === 'PRODUCT') {
-            for(const product of this.device.products) {
-                if(product.enabled === false) {
-                    continue;
-                }
-                if (product.account === nowPlaying.sourceAccount) {
-                    return {
-                        productAccount: product.account
-                    };
-                }
-            }
             return undefined;
         }
         const presets = await this.device.api.getPresets();
@@ -248,6 +245,18 @@ export class SoundTouchAccessory {
                     presetIndex: preset.id
                 }
             }
+        }
+        const selectedSource = this.device.sources.find((src) => {
+            if(src.enabled === false) {
+                return false;
+            }
+            return src.source === nowPlaying.source && src.account === nowPlaying.sourceAccount;
+        });
+        if(selectedSource !== undefined) {
+            return {
+                source: selectedSource.source,
+                account: selectedSource.account
+            };
         }
         return undefined;
     }
@@ -264,6 +273,7 @@ export class SoundTouchAccessory {
             const selectedSource = await this.getSelectedSource();
             success = await this.device.api.pressKey(SoundTouchAccessory.presetValues[index - 1]);
             if(success) {
+                this.log(`[${this.device.name}] Set preset n°${index}`);
                 this.switchSelectedSource(false, selectedSource);
                 this.volumeService.getCharacteristic(Characteristic.On).updateValue(true);
                 this.onService.getCharacteristic(Characteristic.On).updateValue(true);
@@ -271,6 +281,7 @@ export class SoundTouchAccessory {
         } else {
             success = await this.setOn(on);
             if(success) {
+                this.log(`[${this.device.name}] Turn off`);
                 this.onService.getCharacteristic(Characteristic.On).updateValue(false);
             }
         }
@@ -279,8 +290,8 @@ export class SoundTouchAccessory {
 
     private switchSelectedSource(on: boolean, selectedSource?: SoundTouchSelectedSource): void {
         if(selectedSource) {
-            if(selectedSource.productAccount !== undefined) {
-                this.switchProductService(on, selectedSource.productAccount);
+            if(selectedSource.source !== undefined) {
+                this.switchSourceService(on, selectedSource.source, selectedSource.account);
             } else if(selectedSource.presetIndex !== undefined) {
                 this.switchPresetService(on, selectedSource.presetIndex);
             }
@@ -305,25 +316,27 @@ export class SoundTouchAccessory {
     }
 
     private switchPresetService(on: boolean, index: number): void {
-        this.switchService(on, `preset${index}Service`, this.presetServices);
+        this.switchService(on, _presetIndexToServiceType(index), this.presetServices);
     }
 
-    private switchProductService(on: boolean, account: string): void {
-        this.switchService(on, `product${account}Service`, this.productServices);
+    private switchSourceService(on: boolean, source: string, account?: string): void {
+        this.switchService(on, _sourceToServiceType(source, account), this.sourceServices);
     }
 
-    private async isSelectedProduct(account: string): Promise<boolean> {
+    private async isSelectedSource(source: string, account: string): Promise<boolean> {
         const selectedSource = await this.getSelectedSource();
-        return selectedSource !== undefined && selectedSource.productAccount === account;
+        return selectedSource !== undefined && selectedSource.source === source && selectedSource.account === account;
     }
 
-    private async setProduct(on: boolean, account: string): Promise<boolean> {
+    private async setSource(on: boolean, source: string, account: string): Promise<boolean> {
         const Characteristic = this.homebridge.hap.Characteristic;
         let success = false;
         if(on) {
             const selectedSource = await this.getSelectedSource();
-            success = await this.device.api.selectSource('PRODUCT', account);
+            success = await this.device.api.selectSource(source, account);
+            console.log(selectedSource);
             if(success) {
+                this.log(`[${this.device.name}] Select source: '${source}', account: '${account}'`);
                 this.switchSelectedSource(false, selectedSource);
                 this.volumeService.getCharacteristic(Characteristic.On).updateValue(true);
                 this.onService.getCharacteristic(Characteristic.On).updateValue(true);
@@ -331,6 +344,7 @@ export class SoundTouchAccessory {
         } else {
             success = await this.setOn(on);
             if(success) {
+                this.log(`[${this.device.name}] Turn off`);
                 this.onService.getCharacteristic(Characteristic.On).updateValue(false);
             }
         }
@@ -350,4 +364,12 @@ export class SoundTouchAccessory {
         }
         return service;
     }
+}
+
+function _sourceToServiceType(source: string, account?: string): string {
+    return `${source.toLowerCase()}${account || ''}Service`;
+}
+
+function _presetIndexToServiceType(index: number): string {
+    return `preset${index}Service`;
 }

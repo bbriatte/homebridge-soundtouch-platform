@@ -1,12 +1,15 @@
-export interface AccessoryConfig {
+export interface GlobalConfig {
+    readonly maxVolume?: number;
+    readonly unmuteVolume?: number;
+    readonly presets?: PresetConfig[];
+    readonly sources?: SourceConfig[];
+}
+
+export interface AccessoryConfig extends GlobalConfig {
     readonly name?: string;
     readonly room?: string;
     readonly ip?: string;
     readonly port?: number;
-    readonly maxVolume?: number;
-    readonly unmuteVolume?: number;
-    readonly presets?: PresetConfig[];
-    readonly products?: ProductConfig[];
 }
 
 export interface PresetConfig {
@@ -15,8 +18,9 @@ export interface PresetConfig {
     readonly enabled?: boolean;
 }
 
-export interface ProductConfig {
+export interface SourceConfig {
     readonly name?: string;
-    readonly account: string; // TV, HDMI_1, ...
+    readonly source: string; // PRODUCT, BLUETOOTH, ...
+    readonly account?: string; // TV, HDMI_1, ...
     readonly enabled?: boolean;
 }

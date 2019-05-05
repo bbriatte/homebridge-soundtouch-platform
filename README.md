@@ -51,7 +51,7 @@ Example `config.json` for multiple speakers and presets:
             "maxVolume": 80,
             "presets": [
                 {
-                    "name": "Radio 1",
+                    "name": "Radio 3",
                     "index": 3
                 }
             ]
@@ -61,22 +61,24 @@ Example `config.json` for multiple speakers and presets:
             "room": "Kitchen",
             "presets": [
                 {
-                    "name": "Speaker Kitchen TV",
-                    "index": 0
-                },
-                {
                     "name": "Radio 1",
                     "index": 1
-                }
-            ],
-            "products": [
+                },
                 {
-                    "account": "TV",
-                    "enabled": false
+                    "name": "Radio 2",
+                    "index": 2
                 }
             ]
         }
-    ]
+    ],
+    "global": {
+        "sources": [
+            {
+                "source": "QPLAY",
+                "enabled": false
+            }
+        ]
+    }
 }
 ```
 
@@ -88,6 +90,7 @@ Example `config.json` for multiple speakers and presets:
 *Optional fields*
 * `discoverAllAccessories`: Discover all accessories on the local network **default: false**  
 * `accessories`: Array of **Accessory element**
+* `global`: Default configuration for all accessories. see **Global element**
 
 ### Accessory element
 *Optional fields*
@@ -98,7 +101,7 @@ Example `config.json` for multiple speakers and presets:
 * `maxVolume`: The maximum volume of the device. **default: 100%**
 * `presets`: Contains all presets action that you want to trigger using HomeKit on your device. Adds a switch for each preset with the given name.
  Preset index start from 1 to 6 included. see **Preset element**
-* `products`: Contains all products action that you want to trigger using HomeKit on your device. Adds a switch for each product with the given name. see **Product element**
+* `sources`: Contains all sources action that you want to trigger using HomeKit on your device. Adds a switch for each source with the given name. see **Source element**
   
 ### Preset element
 *Required fields*
@@ -108,10 +111,20 @@ Example `config.json` for multiple speakers and presets:
 * `name`: If set, the specific name of the preset`otherwise the name on your SoundTouch product will be used.
 * `enabled`: false will disable this preset to HomeKit
 
-### Product element
+### Source element
 *Required fields*
-* `account`: The product account such as TV, HDMI_1, ...
+* `source`: The source such as PRODUCT, BLUETOOTH, ...
 
 *Optional fields*
+* `account`: The product account such as TV, HDMI_1, ...
 * `name`: If set, the specific name of the preset otherwise the name on your SoundTouch product will be used.
 * `enabled`: false will disable this product to HomeKit
+
+### Global element
+*Optional fields*
+* `unmuteVolume`: The expected volume that you want back to mute mode with 0 volume. **default: 35%**
+* `maxVolume`: The maximum volume of all devices. **default: 100%**
+* `presets`: Contains all presets action that you want to trigger or not using HomeKit on all devices. Adds a switch for each preset with the given name.
+ Preset index start from 1 to 6 included. see **Preset element**
+* `sources`: Contains all sources action that you want to trigger or not using HomeKit on all devices. Adds a switch for each source with the given name. see **Source element**
+  
