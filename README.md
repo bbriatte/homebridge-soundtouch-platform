@@ -97,6 +97,7 @@ Example `config.json` for multiple speakers and presets:
 * `name`: The name you want to use to control the SoundTouch.
 * `room`: Should match exactly with the name of the SoundTouch device.
 * `ip`: The ip address of your device on your network.
+* `onVolume`: The expected volume that you want when the device is turning on.
 * `unmuteVolume`: The expected volume that you want back to mute mode with 0 volume. **default: 35%**
 * `maxVolume`: The maximum volume of the device. **default: 100%**
 * `presets`: Contains all presets action that you want to trigger using HomeKit on your device. Adds a switch for each preset with the given name.
@@ -122,6 +123,7 @@ Example `config.json` for multiple speakers and presets:
 
 ### Global element
 *Optional fields*
+* `onVolume`: The expected volume that you want when the device is turning on.
 * `unmuteVolume`: The expected volume that you want back to mute mode with 0 volume. **default: 35%**
 * `maxVolume`: The maximum volume of all devices. **default: 100%**
 * `presets`: Contains all presets action that you want to trigger or not using HomeKit on all devices. Adds a switch for each preset with the given name.

@@ -21,6 +21,7 @@ export interface SoundTouchDevice {
     readonly id: string;
     readonly model: string;
     readonly version?: string;
+    readonly onVolume: number;
     readonly maxVolume: number;
     readonly unmuteVolume: number;
     readonly presets: SoundTouchPreset[];
@@ -60,6 +61,7 @@ async function _deviceFromApi(api: API, info: Info, globalConfig: GlobalConfig, 
         id: info.deviceId,
         model: info.type,
         version: component ? component.softwareVersion : undefined,
+        onVolume: accessoryConfig.onVolume || globalConfig.onVolume || -1,
         maxVolume: accessoryConfig.maxVolume || globalConfig.maxVolume || 100,
         unmuteVolume: accessoryConfig.unmuteVolume || globalConfig.unmuteVolume || 35,
         presets: presets,

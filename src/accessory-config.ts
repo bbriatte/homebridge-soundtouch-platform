@@ -1,4 +1,5 @@
 export interface GlobalConfig {
+    readonly onVolume?: number;
     readonly maxVolume?: number;
     readonly unmuteVolume?: number;
     readonly presets?: PresetConfig[];

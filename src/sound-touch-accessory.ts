@@ -1,10 +1,9 @@
-import {KeyValue, SourceStatus} from 'soundtouch-api';
+import {ContentItem, KeyValue, SourceStatus} from 'soundtouch-api';
 import {callbackify, Logger} from './utils';
 import {SoundTouchDevice} from './sound-touch-device';
 
 interface SoundTouchSelectedSource {
-    readonly source?: string;
-    readonly account?: string;
+    readonly sourceItem?: ContentItem;
     readonly presetIndex?: number;
 }
 
@@ -51,7 +50,11 @@ export class SoundTouchAccessory {
         const onService = this.getAccessoryService(Service.Switch, this.accessory.displayName, 'onService');
         onService
             .getCharacteristic(Characteristic.On)
-            .on('get', callbackify(this.isOn.bind(this)))
+            .on('get', callbackify(async () => {
+                const isOn = await this.isOn();
+                this.log(`[${this.device.name}] ${isOn ? 'Is on' : 'Is off'}`);
+                return isOn;
+            }))
             .on('set', callbackify(this.setOn.bind(this)));
         return onService;
     }
@@ -90,20 +93,8 @@ export class SoundTouchAccessory {
             }
             const service = this.getAccessoryService(Service.Switch, preset.name, presetType);
             const characteristic = service.getCharacteristic(Characteristic.On);
-            characteristic.on('get', async (callback) => {
-                try {
-                    callback(undefined, await this.isSelectedPreset(preset.index));
-                } catch(err) {
-                    callback(err);
-                }
-            });
-            characteristic.on('set', async (on, callback) => {
-                try {
-                    callback(undefined, await this.setPreset(on, preset.index));
-                } catch(err) {
-                    callback(err);
-                }
-            });
+            characteristic.on('get', callbackify(() => this.isSelectedPreset(preset.index)));
+            characteristic.on('set', callbackify((on: boolean) => this.setPreset(on, preset.index)));
             presetServices.push(service);
         }
         return presetServices;
@@ -121,20 +112,8 @@ export class SoundTouchAccessory {
             }
             const service = this.getAccessoryService(Service.Switch, src.name, sourceType);
             const characteristic = service.getCharacteristic(Characteristic.On);
-            characteristic.on('get', async (callback) => {
-                try {
-                    callback(undefined, await this.isSelectedSource(src.source, src.account));
-                } catch(err) {
-                    callback(err);
-                }
-            });
-            characteristic.on('set', async (on, callback) => {
-                try {
-                    callback(undefined, await this.setSource(on, src.source, src.account));
-                } catch(err) {
-                    callback(err);
-                }
-            });
+            characteristic.on('get', callbackify(() => this.isSelectedSource(src.source, src.account)));
+            characteristic.on('set', callbackify((on: boolean) => this.setSource(on, src.source, src.account)));
             sourceServices.push(service);
         }
         return sourceServices;
@@ -155,40 +134,41 @@ export class SoundTouchAccessory {
         return informationService;
     };
 
-    async isOn(): Promise<boolean> {
+    private async isOn(): Promise<boolean> {
         const nowPlaying = await this.device.api.getNowPlaying();
         return nowPlaying.source !== SourceStatus.standBy;
     }
 
-    async setOn(on: boolean): Promise<boolean> {
-        const Characteristic = this.homebridge.hap.Characteristic;
+    private async setOn(on: boolean, updateOn?: boolean): Promise<boolean> {
         const nowPlaying = await this.device.api.getNowPlaying();
+        let success = false;
         if(nowPlaying.source === SourceStatus.standBy) {
             if(on) {
-                const success = await this.device.api.pressKey(KeyValue.power);
-                if(success) {
-                    this.log(`[${this.device.name}] Turn on`);
-                    await new Promise((resolve => setTimeout(resolve, 500)));
-                    const selectedSource = await this.getSelectedSource();
-                    this.switchSelectedSource(on, selectedSource);
-                    this.volumeService.getCharacteristic(Characteristic.On).updateValue(on);
+                success = await this.device.api.pressKey(KeyValue.power);
+                if(!success) {
+                    return false;
                 }
-                return success;
+                success = await this.deviceDidTurnOn(updateOn, true, true);
+                if(!success) {
+                    return false;
+                }
+                await new Promise((resolve => setTimeout(resolve, 500)));
+                const selectedSource = await this.getSelectedSource();
+                this.switchSelectedSource(on, selectedSource);
             }
         } else if(!on) {
             const selectedSource = await this.getSelectedSource();
-            const success = await this.device.api.pressKey(KeyValue.power);
-            if(success) {
-                this.log(`[${this.device.name}] Turn off`);
-                this.switchSelectedSource(on, selectedSource);
-                this.volumeService.getCharacteristic(Characteristic.On).updateValue(on);
+            success = await this.device.api.pressKey(KeyValue.power);
+            if(!success) {
+                return false;
             }
-            return success;
+            success = await this.deviceDidTurnOff(updateOn, true);
+            this.switchSelectedSource(on, selectedSource);
         }
-        return false;
+        return success;
     }
 
-    async isNotMuted(): Promise<boolean> {
+    private async isNotMuted(): Promise<boolean> {
         const isOn = await this.isOn();
         if(isOn) {
             const volume = await this.device.api.getVolume();
@@ -197,8 +177,7 @@ export class SoundTouchAccessory {
         return false;
     }
 
-    async unMuteDevice(unmute: boolean): Promise<boolean> {
-        const Characteristic = this.homebridge.hap.Characteristic;
+    private async unMuteDevice(unmute: boolean): Promise<boolean> {
         let isOn = await this.isOn();
         if(isOn) {
             const volume = await this.device.api.getVolume();
@@ -209,19 +188,19 @@ export class SoundTouchAccessory {
         } else if(unmute) {
             isOn = await this.device.api.pressKey(KeyValue.power);
             if(isOn) {
-                this.log(`[${this.device.name}] Turn on`);
-                this.onService.getCharacteristic(Characteristic.On).updateValue(isOn);
+                return this.deviceDidTurnOn(true);
             }
         }
         return false;
     }
 
-    async getVolume(): Promise<number> {
+    private async getVolume(): Promise<number> {
         const volume = await this.device.api.getVolume();
+        this.log(`[${this.device.name}] Current volume ${volume.actual}`);
         return volume.actual;
     }
 
-    async setVolume(volume: number): Promise<boolean> {
+    private async setVolume(volume: number, updateBrightness?: boolean): Promise<boolean> {
         const Characteristic = this.homebridge.hap.Characteristic;
         const volumeCharacteristic = this.volumeService.getCharacteristic(Characteristic.Brightness);
         const oldVolume = volumeCharacteristic.value;
@@ -230,10 +209,13 @@ export class SoundTouchAccessory {
             volume = Math.max(oldVolume, this.device.unmuteVolume);
         }
         this.log(`[${this.device.name}] Volume change to ${volume}`);
+        if(updateBrightness === true) {
+            volumeCharacteristic.updateValue(volume);
+        }
         return this.device.api.setVolume(volume);
     }
 
-    async getSelectedSource(): Promise<SoundTouchSelectedSource | undefined> {
+    private async getSelectedSource(): Promise<SoundTouchSelectedSource | undefined> {
         const nowPlaying = await this.device.api.getNowPlaying();
         if(nowPlaying.source === SourceStatus.standBy) {
             return undefined;
@@ -254,46 +236,85 @@ export class SoundTouchAccessory {
         });
         if(selectedSource !== undefined) {
             return {
-                source: selectedSource.source,
-                account: selectedSource.account
+                sourceItem: {
+                    source: selectedSource.source,
+                    sourceAccount: selectedSource.account
+                }
             };
         }
         return undefined;
     }
 
-    async isSelectedPreset(index: number): Promise<boolean> {
+    private async isSelectedPreset(index: number): Promise<boolean> {
         const selectedPreset = await this.getSelectedSource();
-        return selectedPreset !== undefined && selectedPreset.presetIndex === index;
+        if(selectedPreset !== undefined) {
+            if(selectedPreset.presetIndex === index) {
+                this.log(`[${this.device.name}] Current preset n°${index}`);
+                return true;
+            }
+        }
+        return false;
     }
 
-    async setPreset(on: boolean, index: number): Promise<boolean> {
-        const Characteristic = this.homebridge.hap.Characteristic;
+    private async setPreset(on: boolean, index: number): Promise<boolean> {
         let success = false;
         if(on) {
-            const selectedSource = await this.getSelectedSource();
+            const isOn = await this.isOn();
+            if (!isOn) {
+                success = await this.setOn(on, true);
+                if (!success) {
+                    return false;
+                }
+            }
+            const selectedSource: SoundTouchSelectedSource = await this.getSelectedSource();
             success = await this.device.api.pressKey(SoundTouchAccessory.presetValues[index - 1]);
-            if(success) {
+            if (!success) {
+                return false;
+            }
+            if (success) {
                 this.log(`[${this.device.name}] Set preset n°${index}`);
                 this.switchSelectedSource(false, selectedSource);
-                this.volumeService.getCharacteristic(Characteristic.On).updateValue(true);
-                this.onService.getCharacteristic(Characteristic.On).updateValue(true);
             }
         } else {
-            success = await this.setOn(on);
-            if(success) {
-                this.log(`[${this.device.name}] Turn off`);
-                this.onService.getCharacteristic(Characteristic.On).updateValue(false);
-            }
+            success = await this.setOn(on, true);
         }
         return success;
     }
 
+    private async deviceDidTurnOn(updateOn?: boolean, updateVolume?: boolean, updateBrightness?: boolean): Promise<boolean> {
+        let success = true;
+        const Characteristic = this.homebridge.hap.Characteristic;
+        this.log(`[${this.device.name}] Turn on`);
+        if(updateOn === true) {
+            this.onService.getCharacteristic(Characteristic.On).updateValue(true);
+        }
+        if(updateVolume === true) {
+            this.volumeService.getCharacteristic(Characteristic.On).updateValue(true);
+        }
+        if(updateBrightness === true && this.device.onVolume >= 0) {
+            success = await this.setVolume(this.device.onVolume, true);
+        }
+        return success;
+    }
+
+    private async deviceDidTurnOff(updateOn?: boolean, updateVolume?: boolean): Promise<boolean> {
+        const Characteristic = this.homebridge.hap.Characteristic;
+        this.log(`[${this.device.name}] Turn off`);
+        if(updateOn === true) {
+            this.onService.getCharacteristic(Characteristic.On).updateValue(false);
+        }
+        if(updateVolume === true) {
+            this.volumeService.getCharacteristic(Characteristic.On).updateValue(false);
+        }
+        return true;
+    }
+
     private switchSelectedSource(on: boolean, selectedSource?: SoundTouchSelectedSource): void {
         if(selectedSource) {
-            if(selectedSource.source !== undefined) {
-                this.switchSourceService(on, selectedSource.source, selectedSource.account);
-            } else if(selectedSource.presetIndex !== undefined) {
+            if(selectedSource.presetIndex !== undefined) {
                 this.switchPresetService(on, selectedSource.presetIndex);
+            } else if(selectedSource.sourceItem !== undefined) {
+                this.switchSourceService(on, selectedSource.sourceItem.source, selectedSource.sourceItem.sourceAccount);
             }
         }
     }
@@ -325,28 +346,37 @@ export class SoundTouchAccessory {
 
     private async isSelectedSource(source: string, account: string): Promise<boolean> {
         const selectedSource = await this.getSelectedSource();
-        return selectedSource !== undefined && selectedSource.source === source && selectedSource.account === account;
+        if(selectedSource !== undefined) {
+            const sourceItem = selectedSource.sourceItem;
+            if(sourceItem !== undefined && sourceItem.source === source && sourceItem.sourceAccount === account) {
+                this.log(`[${this.device.name}] Current source: '${source}', account: '${account}'`);
+                return true;
+            }
+        }
+        return false;
     }
 
     private async setSource(on: boolean, source: string, account: string): Promise<boolean> {
-        const Characteristic = this.homebridge.hap.Characteristic;
         let success = false;
         if(on) {
+            const isOn = await this.isOn();
+            if(!isOn) {
+                success = await this.setOn(on, true);
+                if(!success) {
+                    return false;
+                }
+            }
             const selectedSource = await this.getSelectedSource();
-            success = await this.device.api.selectSource(source, account);
-            console.log(selectedSource);
+            success = await this.device.api.selectSource({
+                source: source,
+                sourceAccount: account
+            });
             if(success) {
                 this.log(`[${this.device.name}] Select source: '${source}', account: '${account}'`);
                 this.switchSelectedSource(false, selectedSource);
-                this.volumeService.getCharacteristic(Characteristic.On).updateValue(true);
-                this.onService.getCharacteristic(Characteristic.On).updateValue(true);
             }
         } else {
-            success = await this.setOn(on);
-            if(success) {
-                this.log(`[${this.device.name}] Turn off`);
-                this.onService.getCharacteristic(Characteristic.On).updateValue(false);
-            }
+            success = await this.setOn(on,true);
         }
         return success;
     }

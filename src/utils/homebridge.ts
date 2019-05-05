@@ -7,28 +7,23 @@ export interface Logger extends Function {
     readonly prefix: string;
 }
 
-export function callbackify(func: (...args: any[]) => Promise<any>): Function {
+export function callbackify(task: (...taskArgs: any[]) => Promise<any>): Function {
     return (...args: any[]) => {
         const onlyArgs: any[] = [];
-        let maybeCallback: Function | null = null;
+        let callback: Function = undefined;
 
         for (const arg of args) {
             if (typeof arg === 'function') {
-                maybeCallback = arg;
+                callback = arg;
                 break;
             }
-
             onlyArgs.push(arg);
         }
-
-        if (!maybeCallback) {
+        if (!callback) {
             throw new Error("Missing callback parameter!");
         }
-
-        const callback = maybeCallback;
-
-        func(...onlyArgs)
-            .then((data: any) => callback(null, data))
+        task(...onlyArgs)
+            .then((data: any) => callback(undefined, data))
             .catch((err: any) => callback(err))
     }
 }
