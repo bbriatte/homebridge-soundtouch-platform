@@ -12,7 +12,7 @@ This allows you to control your SoundTouch devices with HomeKit and Siri.
 ## Configuration
 Example `config.json` to discover all SoundTouch accessories
 
-```
+```json
 {
     "platform": "SoundTouchPlatform",
     "name": "SoundTouch",
@@ -22,7 +22,7 @@ Example `config.json` to discover all SoundTouch accessories
 
 Example `config.json` to register 1 SoundTouch accessory
 
-```
+```json
 {
     "platform": "SoundTouchPlatform",
     "name": "SoundTouch",
@@ -39,7 +39,7 @@ Example `config.json` to register 1 SoundTouch accessory
 
 Example `config.json` for multiple speakers and presets:
 
-```
+```json
 {
     "platform": "SoundTouchPlatform",
     "name": "SoundTouch",
