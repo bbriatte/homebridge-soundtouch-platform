@@ -76,7 +76,8 @@ export class SoundTouchAccessory {
         }
         brightnessCharacteristic
             .on('get', callbackify(this.getVolume.bind(this)))
-            .on('set', callbackify(this.setVolume.bind(this)));
+            .on('set', callbackify(this.setVolume.bind(this)))
+            .on('change', this.volumeChange.bind(this));
         return volumeService;
     }
 
@@ -203,10 +204,12 @@ export class SoundTouchAccessory {
     private async setVolume(volume: number, updateBrightness?: boolean): Promise<boolean> {
         const Characteristic = this.homebridge.hap.Characteristic;
         const volumeCharacteristic = this.volumeService.getCharacteristic(Characteristic.Brightness);
-        const oldVolume = volumeCharacteristic.value;
-        const maxValue = volumeCharacteristic.props.maxValue;
-        if(volume === maxValue && oldVolume <= maxValue / 2) {
-            volume = Math.max(oldVolume, this.device.unmuteVolume);
+        const secureVolume = this.secureVolume(volumeCharacteristic, {
+            newValue: volume,
+            oldValue: volumeCharacteristic.value
+        });
+        if(secureVolume !== undefined) {
+            volume = secureVolume;
         }
         this.log(`[${this.device.name}] Volume change to ${volume}`);
         if(updateBrightness === true) {
@@ -393,6 +396,23 @@ export class SoundTouchAccessory {
             service.displayName = displayName;
         }
         return service;
+    }
+
+    private secureVolume(characteristic: any, change: {newValue: number, oldValue: number}): number | undefined {
+        const maxValue = characteristic.props.maxValue;
+        if(change.newValue === maxValue && change.oldValue <= maxValue / 2) {
+            return Math.max(change.oldValue, this.device.unmuteVolume);
+        }
+        return undefined;
+    }
+
+    private volumeChange(change: {newValue: number, oldValue: number}) {
+        const Characteristic = this.homebridge.hap.Characteristic;
+        const volumeCharacteristic = this.volumeService.getCharacteristic(Characteristic.Brightness);
+        const newValue = this.secureVolume(volumeCharacteristic, change);
+        if(newValue !== undefined) {
+            setTimeout(() => volumeCharacteristic.updateValue(newValue), 1000);
+        }
     }
 }
 
