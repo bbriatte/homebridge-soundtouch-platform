@@ -1,5 +1,7 @@
 # homebridge-soundtouch-platform
 
+[![npm version](https://badge.fury.io/js/homebridge-soundtouch-platform.svg)](https://badge.fury.io/js/homebridge-soundtouch-platform)
+
 [Bose SoundTouch](https://www.bose.com/soundtouch-systems.html) plugin for [Homebridge](https://github.com/nfarina/homebridge)
 
 This allows you to control your SoundTouch devices with HomeKit and Siri.
