@@ -1,9 +1,20 @@
 export interface GlobalConfig {
-    readonly onVolume?: number;
-    readonly maxVolume?: number;
-    readonly unmuteVolume?: number;
+    readonly volume?: VolumeConfig;
     readonly presets?: PresetConfig[];
     readonly sources?: SourceConfig[];
+}
+
+export enum VolumeMode {
+    none = 'none',
+    lightbulb = 'lightbulb',
+    speaker = 'speaker',
+}
+
+export interface VolumeConfig {
+    readonly onValue?: number;
+    readonly maxValue?: number;
+    readonly unmuteValue?: number;
+    readonly mode?: VolumeMode;
 }
 
 export interface AccessoryConfig extends GlobalConfig {

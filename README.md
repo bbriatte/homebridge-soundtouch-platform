@@ -32,8 +32,10 @@ Example `config.json` to register 1 SoundTouch accessory
         {
             "name": "Speaker Bathroom",
             "room": "Bathroom",
-            "unmuteVolume": 40,
-            "maxVolume": 80
+            "volume": {
+              "unmuteValue": 40,
+              "maxValue": 80
+            }        
         }
     ]
 }
@@ -49,8 +51,11 @@ Example `config.json` for multiple speakers and presets:
         {
             "name": "Speaker Bathroom",
             "ip": "<ip>",
-            "unmuteVolume": 40,
-            "maxVolume": 80,
+            "volume": {
+              "unmuteValue": 40,
+              "maxValue": 80,
+              "mode": "lightbulb"
+            },
             "presets": [
                 {
                     "name": "Radio 3",
@@ -61,6 +66,9 @@ Example `config.json` for multiple speakers and presets:
         {
             "name": "Speaker Kitchen",
             "room": "Kitchen",
+            "volume": {
+              "mode": "speaker"
+            },
             "presets": [
                 {
                     "name": "Radio 1",
@@ -90,7 +98,7 @@ Example `config.json` for multiple speakers and presets:
 * `name`: The name you want to use to control the SoundTouch for the platform.
 
 *Optional fields*
-* `discoverAllAccessories`: Discover all accessories on the local network **default: false**  
+* `discoverAllAccessories`: Discover all accessories on the local network __default__: **false**  
 * `accessories`: Array of **Accessory element**
 * `global`: Default configuration for all accessories. see **Global element**
 
@@ -99,13 +107,23 @@ Example `config.json` for multiple speakers and presets:
 * `name`: The name you want to use to control the SoundTouch.
 * `room`: Should match exactly with the name of the SoundTouch device.
 * `ip`: The ip address of your device on your network.
-* `onVolume`: The expected volume that you want when the device is turning on.
-* `unmuteVolume`: The expected volume that you want back to mute mode with 0 volume. **default: 35%**
-* `maxVolume`: The maximum volume of the device. **default: 100%**
+* `volume`: see **Volume element**
 * `presets`: Contains all presets action that you want to trigger using HomeKit on your device. Adds a switch for each preset with the given name.
  Preset index start from 1 to 6 included. see **Preset element**
 * `sources`: Contains all sources action that you want to trigger using HomeKit on your device. Adds a switch for each source with the given name. see **Source element**
   
+### Volume element  
+*Optional fields*
+* `onValue`: The expected volume that you want when the device is turning on.
+* `unmuteValue`: The expected volume that you want back to mute mode with 0 volume. __default__: **onValue** if sets otherwise **35%**
+* `maxValue`: The maximum volume of the device. __default__: **100%**
+* `mode`: The volume accessory mode. Choose one item from the enum. see **VolumeMode enum**. __default__: **lightbulb**
+
+### VolumeMode enum  
+* `none`: Disable the volume of the accessory
+* `lightbulb`: Control the accessory using a light (with this value you **can** control the volume from the Home.app & Siri).
+* `speaker`: Control the accessory with a speaker slider (with this value you **cannot** controller the volume from the Home.app & Siri).
+
 ### Preset element
 *Required fields*
 * `index`: The preset index starting from 1 to 6
@@ -125,9 +143,7 @@ Example `config.json` for multiple speakers and presets:
 
 ### Global element
 *Optional fields*
-* `onVolume`: The expected volume that you want when the device is turning on.
-* `unmuteVolume`: The expected volume that you want back to mute mode with 0 volume. **default: 35%**
-* `maxVolume`: The maximum volume of all devices. **default: 100%**
+* `volume`: see **Volume element**
 * `presets`: Contains all presets action that you want to trigger or not using HomeKit on all devices. Adds a switch for each preset with the given name.
  Preset index start from 1 to 6 included. see **Preset element**
 * `sources`: Contains all sources action that you want to trigger or not using HomeKit on all devices. Adds a switch for each source with the given name. see **Source element**

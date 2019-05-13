@@ -57,12 +57,12 @@ export class SoundTouchPlatform {
         const cachedAccessory = this._accessories.find((item) => item.UUID === uuid);
         if(cachedAccessory) {
             cachedAccessory.displayName = device.name;
-            const sta = new SoundTouchAccessory(this.log, device, cachedAccessory, homebridge);
+            const sta = new SoundTouchAccessory(this.log, cachedAccessory, homebridge, device);
             homebridge.updatePlatformAccessories([cachedAccessory]);
             return sta;
         }
         const accessory = new homebridge.platformAccessory(device.name, uuid);
-        const sta = new SoundTouchAccessory(this.log, device, accessory, homebridge);
+        const sta = new SoundTouchAccessory(this.log, accessory, homebridge, device);
         this.configureAccessory(accessory);
         homebridge.registerPlatformAccessories(HomebridgeInfo.plugin, HomebridgeInfo.name, [accessory]);
         return sta;

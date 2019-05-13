@@ -1,5 +1,5 @@
-import {AccessoryConfig, GlobalConfig, PresetConfig, SourceConfig} from './accessory-config';
-import {API, APIDiscovery, compactMap, Info} from 'soundtouch-api';
+import {AccessoryConfig, GlobalConfig, PresetConfig, SourceConfig, VolumeMode} from './accessory-config';
+import {API, APIDiscovery, compactMap, Info, SourceStatus} from 'soundtouch-api';
 import {apiNotFoundWithName} from './errors';
 import {stringUpperCaseFirst} from './utils/string-uc-first';
 
@@ -15,15 +15,20 @@ export interface SoundTouchSource {
     readonly enabled: boolean;
 }
 
+export interface SoundTouchVolumeSettings {
+    readonly onValue: number;
+    readonly maxValue: number;
+    readonly unmuteValue: number;
+    readonly mode: VolumeMode;
+}
+
 export interface SoundTouchDevice {
     readonly api: API;
     readonly name: string;
     readonly id: string;
     readonly model: string;
     readonly version?: string;
-    readonly onVolume: number;
-    readonly maxVolume: number;
-    readonly unmuteVolume: number;
+    readonly volumeSettings: SoundTouchVolumeSettings;
     readonly presets: SoundTouchPreset[];
     readonly sources: SoundTouchSource[];
 }
@@ -55,18 +60,34 @@ async function _deviceFromApi(api: API, info: Info, globalConfig: GlobalConfig, 
     const component = info.components.find((c) => c.serialNumber.toLowerCase() === info.deviceId.toLowerCase());
     const presets = await _availablePresets(api, accessoryConfig.presets, globalConfig.presets);
     const sources = await _availableSources(api, displayName, accessoryConfig.sources, globalConfig.sources);
+    const globalVolume = globalConfig.volume || {};
+    const accessoryVolume = accessoryConfig.volume || {};
+    const onValue =  globalVolume.onValue || accessoryVolume.onValue;
     return {
         api: api,
         name: displayName,
         id: info.deviceId,
         model: info.type,
         version: component ? component.softwareVersion : undefined,
-        onVolume: accessoryConfig.onVolume || globalConfig.onVolume || -1,
-        maxVolume: accessoryConfig.maxVolume || globalConfig.maxVolume || 100,
-        unmuteVolume: accessoryConfig.unmuteVolume || globalConfig.unmuteVolume || 35,
+        volumeSettings: {
+            onValue: onValue || -1,
+            maxValue: globalVolume.maxValue || accessoryVolume.maxValue || 100,
+            unmuteValue: globalVolume.unmuteValue || accessoryVolume.unmuteValue || onValue || 35,
+            mode: globalVolume.mode || accessoryVolume.mode || VolumeMode.lightbulb
+        },
         presets: presets,
         sources: sources
     };
+}
+
+export interface DeviceOnOffListener {
+    deviceDidTurnOff(updateOn?: boolean, updateVolume?: boolean): Promise<boolean>;
+    deviceDidTurnOn(updateOn?: boolean, updateVolume?: boolean): Promise<boolean>;
+}
+
+export async function deviceIsOn(device: SoundTouchDevice): Promise<boolean> {
+    const nowPlaying = await device.api.getNowPlaying();
+    return nowPlaying.source !== SourceStatus.standBy;
 }
 
 async function _availablePresets(api: API, accessoryPresets: PresetConfig[], globalPresets: PresetConfig[]): Promise<SoundTouchPreset[]> {
