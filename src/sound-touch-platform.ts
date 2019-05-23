@@ -56,16 +56,4 @@ export class SoundTouchPlatform extends HomebridgePlatform<SountTouchPlatformCon
         accessory.reachable = true;
         this._accessories.push(accessory);
     }
-
-    private _clearUnreachableAccessories(homebridge: any) {
-        const unreachableAccessories = this._accessories.filter((cachedAccessory) => {
-            return this.accessories.some((soundTouch) => {
-                return soundTouch.accessory.UUID === cachedAccessory.UUID;
-            }) === false;
-        });
-        if(unreachableAccessories.length > 0) {
-            unreachableAccessories.forEach((acc) => acc.reachable = false);
-            homebridge.unregisterPlatformAccessories(HomebridgeInfo.plugin, HomebridgeInfo.name, unreachableAccessories);
-        }
-    }
 }
