@@ -1,5 +1,6 @@
 import {SoundTouchVolume} from './sound-touch-volume';
-import {HomebridgeAccessory} from './utils';
+import {HomebridgeAccessory} from 'homebridge-base-platform';
+import {SoundTouchDevice} from './sound-touch-device';
 
 export class SoundTouchSpeakerVolume extends SoundTouchVolume {
     protected initService(): any {
@@ -12,7 +13,7 @@ export class SoundTouchSpeakerVolume extends SoundTouchVolume {
         return volumeService;
     }
 
-    public static clearServices(accessory: HomebridgeAccessory) {
+    public static clearServices(accessory: HomebridgeAccessory<SoundTouchDevice>) {
         const hap = accessory.homebridge.hap;
         accessory.removeService(hap.Service.Speaker, 'volumeService');
     }

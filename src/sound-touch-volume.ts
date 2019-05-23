@@ -1,14 +1,14 @@
-import {callbackify, HomebridgeAccessory, Logger} from './utils';
 import {KeyValue, SourceStatus} from 'soundtouch-api';
 import {deviceIsOn, DeviceOnOffListener, SoundTouchDevice} from './sound-touch-device';
+import {callbackify, HomebridgeAccessory} from 'homebridge-base-platform';
 
 export abstract class SoundTouchVolume {
 
     protected readonly device: SoundTouchDevice;
-    protected readonly accessory: HomebridgeAccessory & DeviceOnOffListener;
+    protected readonly accessory: HomebridgeAccessory<SoundTouchDevice> & DeviceOnOffListener;
     protected readonly service: any;
 
-    public constructor(device: SoundTouchDevice, accessory: HomebridgeAccessory & DeviceOnOffListener) {
+    public constructor(device: SoundTouchDevice, accessory: HomebridgeAccessory<SoundTouchDevice> & DeviceOnOffListener) {
         this.device = device;
         this.accessory = accessory;
         this.service = this.initService();
@@ -45,7 +45,7 @@ export abstract class SoundTouchVolume {
         if(isOn) {
             const volume = await this.device.api.getVolume();
             if((unmute && volume.isMuted) || (!unmute && !volume.isMuted)) {
-                this.accessory.log(`[${this.device.name}] ${unmute ? 'Unmuted' : 'Muted'}`);
+                this.accessory.log(`[${this.accessory.getDisplayName()}] ${unmute ? 'Unmuted' : 'Muted'}`);
                 return this.device.api.pressKey(KeyValue.mute);
             }
         } else if(unmute) {
@@ -59,7 +59,7 @@ export abstract class SoundTouchVolume {
 
     public async getVolume(): Promise<number> {
         const volume = await this.device.api.getVolume();
-        this.accessory.log(`[${this.device.name}] Current volume ${volume.actual}`);
+        this.accessory.log(`[${this.accessory.getDisplayName()}] Current volume ${volume.actual}`);
         return volume.actual;
     }
 
@@ -72,7 +72,7 @@ export abstract class SoundTouchVolume {
         if(secureVolume !== undefined) {
             volume = secureVolume;
         }
-        this.accessory.log(`[${this.device.name}] Volume change to ${volume}`);
+        this.accessory.log(`[${this.accessory.getDisplayName()}] Volume change to ${volume}`);
         if(updateCharacteristic === true) {
             volumeCharacteristic.updateValue(volume);
         }

@@ -1,19 +1,18 @@
 import {ContentItem, KeyValue, SourceStatus} from 'soundtouch-api';
-import {callbackify, HomebridgeAccessory, Logger} from './utils';
 import {deviceIsOn, DeviceOnOffListener, SoundTouchDevice} from './sound-touch-device';
 import {SoundTouchVolume} from './sound-touch-volume';
 import {SoundTouchSpeakerVolume} from './sound-touch-speaker-volume';
 import {VolumeMode} from './accessory-config';
 import {SoundTouchLightbulbVolume} from './sound-touch-lightbulb-volume';
+import {callbackify, HomebridgeAccessory, Logger} from 'homebridge-base-platform';
 
 interface SoundTouchSelectedSource {
     readonly sourceItem?: ContentItem;
     readonly presetIndex?: number;
 }
 
-export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOnOffListener {
+export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> implements DeviceOnOffListener {
 
-    private readonly device: SoundTouchDevice;
     private readonly volume?: SoundTouchVolume;
     private readonly onService: any;
     private readonly presetServices: any[];
@@ -30,9 +29,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOn
     ];
 
     constructor(log: Logger, accessory: any, homebridge: any, device: SoundTouchDevice) {
-        super(log, accessory, homebridge);
-
-        this.device = device;
+        super(log, accessory, homebridge, device);
 
         this.informationService = this.initInformationService();
         this.onService = this.initOnService();
@@ -40,7 +37,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOn
         this.presetServices = this.initPresetServices();
         this.sourceServices = this.initSourceServices();
 
-        this.log(`Found device [${device.name}]`);
+        this.log(`Found device [${this.getDisplayName()}]`);
     }
 
     private initVolumeService(): SoundTouchVolume | undefined {
@@ -67,7 +64,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOn
             .getCharacteristic(Characteristic.On)
             .on('get', callbackify(async () => {
                 const isOn = await deviceIsOn(this.device);
-                this.log(`[${this.device.name}] ${isOn ? 'Is on' : 'Is off'}`);
+                this.log(`[${this.getDisplayName()}] ${isOn ? 'Is on' : 'Is off'}`);
                 return isOn;
             }))
             .on('set', callbackify(this.setOn.bind(this)));
@@ -191,7 +188,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOn
         const selectedPreset = await this.getSelectedSource();
         if(selectedPreset !== undefined) {
             if(selectedPreset.presetIndex === index) {
-                this.log(`[${this.device.name}] Current preset n°${index}`);
+                this.log(`[${this.getDisplayName()}] Current preset n°${index}`);
                 return true;
             }
         }
@@ -214,7 +211,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOn
                 return false;
             }
             if (success) {
-                this.log(`[${this.device.name}] Set preset n°${index}`);
+                this.log(`[${this.getDisplayName()}] Set preset n°${index}`);
                 this.switchSelectedSource(false, selectedSource);
             }
         } else {
@@ -226,7 +223,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOn
     public async deviceDidTurnOn(updateOn?: boolean, updateVolume?: boolean): Promise<boolean> {
         let success = true;
         const Characteristic = this.homebridge.hap.Characteristic;
-        this.log(`[${this.device.name}] Turn on`);
+        this.log(`[${this.getDisplayName()}] Turn on`);
         if(updateOn === true) {
             this.onService.getCharacteristic(Characteristic.On).updateValue(true);
             if(this.volume !== undefined) {
@@ -241,7 +238,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOn
 
     public async deviceDidTurnOff(updateOn?: boolean, updateVolume?: boolean): Promise<boolean> {
         const Characteristic = this.homebridge.hap.Characteristic;
-        this.log(`[${this.device.name}] Turn off`);
+        this.log(`[${this.getDisplayName()}] Turn off`);
         if(updateOn === true) {
             this.onService.getCharacteristic(Characteristic.On).updateValue(false);
         }
@@ -284,7 +281,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOn
         if(selectedSource !== undefined) {
             const sourceItem = selectedSource.sourceItem;
             if(sourceItem !== undefined && sourceItem.source === source && sourceItem.sourceAccount === account) {
-                this.log(`[${this.device.name}] Current source: '${source}', account: '${account}'`);
+                this.log(`[${this.getDisplayName()}] Current source: '${source}', account: '${account}'`);
                 return true;
             }
         }
@@ -307,7 +304,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory implements DeviceOn
                 sourceAccount: account
             });
             if(success) {
-                this.log(`[${this.device.name}] Select source: '${source}', account: '${account}'`);
+                this.log(`[${this.getDisplayName()}] Select source: '${source}', account: '${account}'`);
                 this.switchSelectedSource(false, selectedSource);
             }
         } else {

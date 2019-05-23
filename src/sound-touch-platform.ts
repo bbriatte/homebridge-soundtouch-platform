@@ -1,37 +1,21 @@
-import {PlatformConfig} from './platform-config';
 import {AccessoryConfig, GlobalConfig} from './accessory-config';
 import {SoundTouchAccessory} from './sound-touch-accessory';
 import {deviceFromConfig, searchAllDevices, SoundTouchDevice} from './sound-touch-device';
-import {Logger} from './utils';
+import {HomebridgePlatform} from 'homebridge-base-platform';
+import {SountTouchPlatformConfig} from './platform-config';
 
 export enum HomebridgeInfo {
     plugin = 'homebridge-soundtouch-platform',
     name = 'SoundTouchPlatform'
 }
 
-export class SoundTouchPlatform {
+export class SoundTouchPlatform extends HomebridgePlatform<SountTouchPlatformConfig, SoundTouchDevice, SoundTouchAccessory> {
 
-    private readonly log: Logger;
-    private readonly config: PlatformConfig;
-    private readonly _accessories: any[]; // homebridge registry
-    private accessories: SoundTouchAccessory[];
-
-    constructor(log: Logger, config: PlatformConfig, homebridge: any) {
-        this.log = log;
-        this.config = config;
-        this._accessories = [];
-        homebridge.on('didFinishLaunching', async () => {
-            if(config) {
-                this.log('Searching accessories...');
-                this.accessories = await this._searchAccessories(homebridge);
-                this.log('Finish searching accessories');
-            } else {
-                this.log.error(`No config provided for the ${HomebridgeInfo.name}`);
-            }
-        });
+    protected getPluginName(): string {
+        return HomebridgeInfo.plugin;
     }
 
-    private async _searchAccessories(homebridge: any): Promise<SoundTouchAccessory[]> {
+    protected async searchAccessories(homebridge: any): Promise<SoundTouchAccessory[]> {
         const accessoryConfigs = this.config.accessories || [];
         const globaConfig = this.config.global || {};
         if(this.config.discoverAllAccessories === true) {
@@ -68,8 +52,20 @@ export class SoundTouchPlatform {
         return sta;
     }
 
-    configureAccessory(accessory: any) {
+    public configureAccessory(accessory: any) {
         accessory.reachable = true;
         this._accessories.push(accessory);
+    }
+
+    private _clearUnreachableAccessories(homebridge: any) {
+        const unreachableAccessories = this._accessories.filter((cachedAccessory) => {
+            return this.accessories.some((soundTouch) => {
+                return soundTouch.accessory.UUID === cachedAccessory.UUID;
+            }) === false;
+        });
+        if(unreachableAccessories.length > 0) {
+            unreachableAccessories.forEach((acc) => acc.reachable = false);
+            homebridge.unregisterPlatformAccessories(HomebridgeInfo.plugin, HomebridgeInfo.name, unreachableAccessories);
+        }
     }
 }
