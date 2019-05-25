@@ -1,16 +1,16 @@
 import {KeyValue, SourceStatus} from 'soundtouch-api';
 import {deviceIsOn, DeviceOnOffListener, SoundTouchDevice} from './sound-touch-device';
-import {callbackify, HomebridgeAccessory} from 'homebridge-base-platform';
+import {callbackify, HomebridgeAccessoryWrapper} from 'homebridge-base-platform';
 
 export abstract class SoundTouchVolume {
 
     protected readonly device: SoundTouchDevice;
-    protected readonly accessory: HomebridgeAccessory<SoundTouchDevice> & DeviceOnOffListener;
+    protected readonly accessoryWrapper: HomebridgeAccessoryWrapper<SoundTouchDevice> & DeviceOnOffListener;
     protected readonly service: any;
 
-    public constructor(device: SoundTouchDevice, accessory: HomebridgeAccessory<SoundTouchDevice> & DeviceOnOffListener) {
+    public constructor(device: SoundTouchDevice, accessoryWrapper: HomebridgeAccessoryWrapper<SoundTouchDevice> & DeviceOnOffListener) {
         this.device = device;
-        this.accessory = accessory;
+        this.accessoryWrapper = accessoryWrapper;
         this.service = this.initService();
         if(this.device.volumeSettings.maxValue < 100) {
             this.getVolumeCharacteristic().props.maxValue = Math.min(this.device.volumeSettings.maxValue, 100);
@@ -45,13 +45,13 @@ export abstract class SoundTouchVolume {
         if(isOn) {
             const volume = await this.device.api.getVolume();
             if((unmute && volume.isMuted) || (!unmute && !volume.isMuted)) {
-                this.accessory.log(`[${this.accessory.getDisplayName()}] ${unmute ? 'Unmuted' : 'Muted'}`);
+                this.accessoryWrapper.log(`[${this.accessoryWrapper.getDisplayName()}] ${unmute ? 'Unmuted' : 'Muted'}`);
                 return this.device.api.pressKey(KeyValue.mute);
             }
         } else if(unmute) {
             isOn = await this.device.api.pressKey(KeyValue.power);
             if(isOn) {
-                return this.accessory.deviceDidTurnOn(true);
+                return this.accessoryWrapper.deviceDidTurnOn(true);
             }
         }
         return false;
@@ -59,7 +59,7 @@ export abstract class SoundTouchVolume {
 
     public async getVolume(): Promise<number> {
         const volume = await this.device.api.getVolume();
-        this.accessory.log(`[${this.accessory.getDisplayName()}] Current volume ${volume.actual}`);
+        this.accessoryWrapper.log(`[${this.accessoryWrapper.getDisplayName()}] Current volume ${volume.actual}`);
         return volume.actual;
     }
 
@@ -72,7 +72,7 @@ export abstract class SoundTouchVolume {
         if(secureVolume !== undefined) {
             volume = secureVolume;
         }
-        this.accessory.log(`[${this.accessory.getDisplayName()}] Volume change to ${volume}`);
+        this.accessoryWrapper.log(`[${this.accessoryWrapper.getDisplayName()}] Volume change to ${volume}`);
         if(updateCharacteristic === true) {
             volumeCharacteristic.updateValue(volume);
         }

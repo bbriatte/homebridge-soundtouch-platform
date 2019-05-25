@@ -1,6 +1,6 @@
 {
   "name": "homebridge-soundtouch-platform",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Homebridge SoundTouch platform",
   "main": "dist/index.js",
   "types": "dist/index.d.js",
@@ -22,11 +22,11 @@
   "author": "bbriatte",
   "license": "BSD",
   "dependencies": {
-    "homebridge-base-platform": "^1.0.0",
+    "homebridge-base-platform": "^1.1.2",
     "soundtouch-api": "^1.0.14"
   },
   "devDependencies": {
-    "@types/node": "^11.13.10",
+    "@types/node": "^11.13.11",
     "homebridge": "^0.4.48"
   }
 }

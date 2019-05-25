@@ -4,14 +4,14 @@ import {SoundTouchVolume} from './sound-touch-volume';
 import {SoundTouchSpeakerVolume} from './sound-touch-speaker-volume';
 import {VolumeMode} from './accessory-config';
 import {SoundTouchLightbulbVolume} from './sound-touch-lightbulb-volume';
-import {callbackify, HomebridgeAccessory, Logger} from 'homebridge-base-platform';
+import {callbackify, Context, HomebridgeAccessoryWrapper} from 'homebridge-base-platform';
 
 interface SoundTouchSelectedSource {
     readonly sourceItem?: ContentItem;
     readonly presetIndex?: number;
 }
 
-export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> implements DeviceOnOffListener {
+export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<SoundTouchDevice> implements DeviceOnOffListener {
 
     private readonly volume?: SoundTouchVolume;
     private readonly onService: any;
@@ -28,8 +28,8 @@ export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> i
         KeyValue.preset6
     ];
 
-    constructor(log: Logger, accessory: any, homebridge: any, device: SoundTouchDevice) {
-        super(log, accessory, homebridge, device);
+    constructor(context: Context, accessory: any, device: SoundTouchDevice) {
+        super(context, accessory, device);
 
         this.informationService = this.initInformationService();
         this.onService = this.initOnService();
@@ -57,11 +57,9 @@ export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> i
     }
 
     private initOnService(): any {
-        const Service = this.homebridge.hap.Service;
-        const Characteristic = this.homebridge.hap.Characteristic;
-        const onService = this.getService(Service.Switch, this.getDisplayName(), 'onService');
+        const onService = this.getService(this.Service.Switch, this.getDisplayName(), 'onService');
         onService
-            .getCharacteristic(Characteristic.On)
+            .getCharacteristic(this.Characteristic.On)
             .on('get', callbackify(async () => {
                 const isOn = await deviceIsOn(this.device);
                 this.log(`[${this.getDisplayName()}] ${isOn ? 'Is on' : 'Is off'}`);
@@ -72,18 +70,16 @@ export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> i
     }
 
     private initPresetServices(): any[] {
-        const Service = this.homebridge.hap.Service;
-        const Characteristic = this.homebridge.hap.Characteristic;
         const presetServices = [];
         for(let i = 1; i <= 6; i++) {
             const presetType = _presetIndexToServiceType(i);
             const preset = this.device.presets.find((p) => p.index === i);
             if(preset === undefined) {
-                this.removeService(Service.Switch, presetType);
+                this.removeService(this.Service.Switch, presetType);
                 continue;
             }
-            const service = this.getService(Service.Switch, preset.name, presetType);
-            const characteristic = service.getCharacteristic(Characteristic.On);
+            const service = this.getService(this.Service.Switch, preset.name, presetType);
+            const characteristic = service.getCharacteristic(this.Characteristic.On);
             characteristic.on('get', callbackify(() => this.isSelectedPreset(preset.index)));
             characteristic.on('set', callbackify((on: boolean) => this.setPreset(on, preset.index)));
             presetServices.push(service);
@@ -92,17 +88,15 @@ export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> i
     }
 
     private initSourceServices(): any[] {
-        const Service = this.homebridge.hap.Service;
-        const Characteristic = this.homebridge.hap.Characteristic;
         const sourceServices = [];
         for(let src of this.device.sources) {
             const sourceType = _sourceToServiceType(src.source, src.account);
             if(src.enabled === false) {
-                this.removeService(Service.Switch, sourceType);
+                this.removeService(this.Service.Switch, sourceType);
                 continue;
             }
-            const service = this.getService(Service.Switch, src.name, sourceType);
-            const characteristic = service.getCharacteristic(Characteristic.On);
+            const service = this.getService(this.Service.Switch, src.name, sourceType);
+            const characteristic = service.getCharacteristic(this.Characteristic.On);
             characteristic.on('get', callbackify(() => this.isSelectedSource(src.source, src.account)));
             characteristic.on('set', callbackify((on: boolean) => this.setSource(on, src.source, src.account)));
             sourceServices.push(service);
@@ -111,16 +105,14 @@ export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> i
     }
 
     private initInformationService(): any {
-        const Service = this.homebridge.hap.Service;
-        const Characteristic = this.homebridge.hap.Characteristic;
-        const informationService = this.accessory.getService(Service.AccessoryInformation);
+        const informationService = this.accessory.getService(this.Service.AccessoryInformation);
         informationService
-            .setCharacteristic(Characteristic.Name, this.getDisplayName())
-            .setCharacteristic(Characteristic.Manufacturer, 'Bose')
-            .setCharacteristic(Characteristic.Model, this.device.model)
-            .setCharacteristic(Characteristic.SerialNumber, this.device.id);
+            .setCharacteristic(this.Characteristic.Name, this.getDisplayName())
+            .setCharacteristic(this.Characteristic.Manufacturer, 'Bose')
+            .setCharacteristic(this.Characteristic.Model, this.device.model)
+            .setCharacteristic(this.Characteristic.SerialNumber, this.device.id);
         if(this.device.version) {
-            informationService.setCharacteristic(Characteristic.FirmwareRevision, this.device.version);
+            informationService.setCharacteristic(this.Characteristic.FirmwareRevision, this.device.version);
         }
         return informationService;
     };
@@ -206,7 +198,7 @@ export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> i
                 }
             }
             const selectedSource: SoundTouchSelectedSource = await this.getSelectedSource();
-            success = await this.device.api.pressKey(SoundTouchAccessory.presetValues[index - 1]);
+            success = await this.device.api.pressKey(SoundTouchAccessoryWrapper.presetValues[index - 1]);
             if (!success) {
                 return false;
             }
@@ -222,10 +214,9 @@ export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> i
 
     public async deviceDidTurnOn(updateOn?: boolean, updateVolume?: boolean): Promise<boolean> {
         let success = true;
-        const Characteristic = this.homebridge.hap.Characteristic;
         this.log(`[${this.getDisplayName()}] Turn on`);
         if(updateOn === true) {
-            this.onService.getCharacteristic(Characteristic.On).updateValue(true);
+            this.onService.getCharacteristic(this.Characteristic.On).updateValue(true);
             if(this.volume !== undefined) {
                 this.volume.getMuteCharacteristic().updateValue(true);
             }
@@ -237,10 +228,9 @@ export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> i
     }
 
     public async deviceDidTurnOff(updateOn?: boolean, updateVolume?: boolean): Promise<boolean> {
-        const Characteristic = this.homebridge.hap.Characteristic;
         this.log(`[${this.getDisplayName()}] Turn off`);
         if(updateOn === true) {
-            this.onService.getCharacteristic(Characteristic.On).updateValue(false);
+            this.onService.getCharacteristic(this.Characteristic.On).updateValue(false);
         }
         if(updateVolume === true) {
             this.volume.getMuteCharacteristic().updateValue(false);
@@ -259,10 +249,9 @@ export class SoundTouchAccessory extends HomebridgeAccessory<SoundTouchDevice> i
     }
 
     private switchService(on: boolean, type: string, services: any[]) {
-        const Characteristic = this.homebridge.hap.Characteristic;
         for(const service of services) {
             if(service.subtype === type) {
-                service.getCharacteristic(Characteristic.On).updateValue(on);
+                service.getCharacteristic(this.Characteristic.On).updateValue(on);
                 return;
             }
         }

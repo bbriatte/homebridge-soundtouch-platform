@@ -1,7 +1,7 @@
 import {AccessoryConfig, GlobalConfig, PresetConfig, SourceConfig, VolumeMode} from './accessory-config';
 import {API, APIDiscovery, compactMap, Info, SourceStatus} from 'soundtouch-api';
 import {apiNotFoundWithName} from './errors';
-import {stringUpperCaseFirst} from './utils/string-uc-first';
+import {stringUpperCaseFirst} from './utils';
 
 export interface SoundTouchPreset {
     readonly name: string;

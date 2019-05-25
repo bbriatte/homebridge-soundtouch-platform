@@ -1,30 +1,30 @@
 import {SoundTouchVolume} from './sound-touch-volume';
-import {HomebridgeAccessory} from 'homebridge-base-platform';
+import {HomebridgeAccessoryWrapper} from 'homebridge-base-platform';
 import {SoundTouchDevice} from './sound-touch-device';
 
 export class SoundTouchSpeakerVolume extends SoundTouchVolume {
     protected initService(): any {
-        const hap = this.accessory.homebridge.hap;
-        const volumeService = this.accessory.getService(hap.Service.Speaker, this.accessory.getDisplayName() + ' Volume', 'volumeService');
-        let volumeCharacteristic = volumeService.getCharacteristic(hap.Characteristic.Volume);
+        const Characteristic = this.accessoryWrapper.Characteristic;
+        const Service = this.accessoryWrapper.Service;
+        const volumeService = this.accessoryWrapper.getService(Service.Speaker, this.accessoryWrapper.getDisplayName() + ' Volume', 'volumeService');
+        let volumeCharacteristic = volumeService.getCharacteristic(Characteristic.Volume);
         if(volumeCharacteristic === undefined) {
-            volumeService.addCharacteristic(new hap.Characteristic.Volume());
+            volumeService.addCharacteristic(new Characteristic.Volume());
         }
         return volumeService;
     }
 
-    public static clearServices(accessory: HomebridgeAccessory<SoundTouchDevice>) {
-        const hap = accessory.homebridge.hap;
-        accessory.removeService(hap.Service.Speaker, 'volumeService');
+    public static clearServices(accessoryWrapper: HomebridgeAccessoryWrapper<SoundTouchDevice>) {
+        accessoryWrapper.removeService(accessoryWrapper.Service.Speaker, 'volumeService');
     }
 
     public getVolumeCharacteristic(): any {
-        const Characteristic = this.accessory.homebridge.hap.Characteristic;
+        const Characteristic = this.accessoryWrapper.Characteristic;
         return this.service.getCharacteristic(Characteristic.Volume);
     }
 
     public getMuteCharacteristic(): any {
-        const Characteristic = this.accessory.homebridge.hap.Characteristic;
+        const Characteristic = this.accessoryWrapper.Characteristic;
         return this.service.getCharacteristic(Characteristic.Mute);
     }
 }
