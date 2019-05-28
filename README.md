@@ -66,6 +66,7 @@ Example `config.json` for multiple speakers and presets:
         {
             "name": "Speaker Kitchen",
             "room": "Kitchen",
+            "verbose": true,
             "volume": {
               "mode": "speaker"
             },
@@ -143,6 +144,7 @@ Example `config.json` for multiple speakers and presets:
 
 ### Global element
 *Optional fields*
+* `verbose`: Log all device information
 * `volume`: see **Volume element**
 * `presets`: Contains all presets action that you want to trigger or not using HomeKit on all devices. Adds a switch for each preset with the given name.
  Preset index start from 1 to 6 included. see **Preset element**

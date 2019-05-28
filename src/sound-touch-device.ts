@@ -2,6 +2,7 @@ import {AccessoryConfig, GlobalConfig, PresetConfig, SourceConfig, VolumeMode} f
 import {API, APIDiscovery, compactMap, Info, SourceStatus} from 'soundtouch-api';
 import {apiNotFoundWithName} from './errors';
 import {stringUpperCaseFirst} from './utils';
+import {Logger} from 'homebridge-base-platform/dist/logger';
 
 export interface SoundTouchPreset {
     readonly name: string;
@@ -33,16 +34,16 @@ export interface SoundTouchDevice {
     readonly sources: SoundTouchSource[];
 }
 
-export async function searchAllDevices(globalConfig: GlobalConfig, accessoryConfigs: AccessoryConfig[]): Promise<SoundTouchDevice[]> {
+export async function searchAllDevices(globalConfig: GlobalConfig, accessoryConfigs: AccessoryConfig[], log?: Logger): Promise<SoundTouchDevice[]> {
     const apis = await APIDiscovery.search();
     return Promise.all(apis.map(async (api) => {
         const info = await api.getInfo();
         const accessoryConfig = accessoryConfigs.find((ac) => ac.room === info.name || ac.ip === api.host);
-        return _deviceFromApi(api, info, globalConfig, accessoryConfig || {});
+        return _deviceFromApi(api, info, globalConfig, accessoryConfig || {}, log);
     }));
 }
 
-export async function deviceFromConfig(globalConfig: GlobalConfig, accessoryConfig: AccessoryConfig): Promise<SoundTouchDevice> {
+export async function deviceFromConfig(globalConfig: GlobalConfig, accessoryConfig: AccessoryConfig, log: Logger): Promise<SoundTouchDevice> {
     let api: API;
     if(accessoryConfig.ip) {
         api = new API(accessoryConfig.ip, accessoryConfig.port);
@@ -52,14 +53,18 @@ export async function deviceFromConfig(globalConfig: GlobalConfig, accessoryConf
             throw apiNotFoundWithName(accessoryConfig.name);
         }
     }
-    return _deviceFromApi(api, await api.getInfo(), globalConfig, accessoryConfig);
+    return _deviceFromApi(api, await api.getInfo(), globalConfig, accessoryConfig, log);
 }
 
-async function _deviceFromApi(api: API, info: Info, globalConfig: GlobalConfig, accessoryConfig: AccessoryConfig): Promise<SoundTouchDevice> {
+async function _deviceFromApi(api: API, info: Info, globalConfig: GlobalConfig, accessoryConfig: AccessoryConfig, log: Logger): Promise<SoundTouchDevice> {
     const displayName = accessoryConfig.name || info.name;
+    const verbose = globalConfig.verbose || accessoryConfig.verbose || false;
+    if(verbose === true) {
+        log(`[${displayName}] Found device`);
+    }
     const component = info.components.find((c) => c.serialNumber.toLowerCase() === info.deviceId.toLowerCase());
-    const presets = await _availablePresets(api, accessoryConfig.presets, globalConfig.presets);
-    const sources = await _availableSources(api, displayName, accessoryConfig.sources, globalConfig.sources);
+    const presets = await _availablePresets(api, displayName, accessoryConfig.presets, globalConfig.presets, verbose === true ? log : undefined);
+    const sources = await _availableSources(api, displayName, accessoryConfig.sources, globalConfig.sources, verbose === true ? log : undefined);
     const globalVolume = globalConfig.volume || {};
     const accessoryVolume = accessoryConfig.volume || {};
     const onValue =  globalVolume.onValue || accessoryVolume.onValue;
@@ -90,10 +95,13 @@ export async function deviceIsOn(device: SoundTouchDevice): Promise<boolean> {
     return nowPlaying.source !== SourceStatus.standBy;
 }
 
-async function _availablePresets(api: API, accessoryPresets: PresetConfig[], globalPresets: PresetConfig[]): Promise<SoundTouchPreset[]> {
+async function _availablePresets(api: API, deviceName: string, accessoryPresets: PresetConfig[], globalPresets: PresetConfig[], log?: Logger): Promise<SoundTouchPreset[]> {
     const presets = await api.getPresets();
     return compactMap(presets, (preset) => {
         const presetConfig = _findConfig((p) => p.index === preset.id, accessoryPresets, globalPresets) || {index: preset.id};
+        if(log !== undefined) {
+            log(`[${deviceName}] Found preset n°${preset.id} '${preset.contentItem.itemName}' on device`);
+        }
         if (presetConfig.enabled === false) {
             return undefined;
         }
@@ -104,10 +112,13 @@ async function _availablePresets(api: API, accessoryPresets: PresetConfig[], glo
     });
 }
 
-async function _availableSources(api: API, deviceName: string, accessorySources?: SourceConfig[], globalSources?: SourceConfig[]): Promise<SoundTouchSource[]> {
+async function _availableSources(api: API, deviceName: string, accessorySources?: SourceConfig[], globalSources?: SourceConfig[], log?: Logger): Promise<SoundTouchSource[]> {
     const sources = await api.getSources();
     const localSources = sources.items.filter((src) => src.isLocal);
     return localSources.map((ls) => {
+        if(log !== undefined) {
+            log(`[${deviceName}] Found local source '${ls.source}' with account '${ls.sourceAccount || ''}' on device`);
+        }
         const sourceConfig = _findConfig((p) => p.source === ls.source && (p.account !== undefined ? p.account === ls.sourceAccount : true), accessorySources, globalSources) || {source: ls.source};
         return {
             name: sourceConfig.name || `${deviceName} ${ls.name ? ls.name : stringUpperCaseFirst(sourceConfig.source)}`,

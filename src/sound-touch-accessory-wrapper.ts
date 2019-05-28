@@ -37,7 +37,7 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         this.presetServices = this.initPresetServices();
         this.sourceServices = this.initSourceServices();
 
-        this.log(`Found device [${this.getDisplayName()}]`);
+        this.log(`[${this.getDisplayName()}] Accessory ready`);
     }
 
     private initVolumeService(): SoundTouchVolume | undefined {

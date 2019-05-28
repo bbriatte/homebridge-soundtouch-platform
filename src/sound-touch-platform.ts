@@ -29,8 +29,8 @@ export class SoundTouchPlatform extends HomebridgePlatform<SountTouchPlatformCon
         const accessoryConfigs: AccessoryConfig[] = this.config.accessories || [];
         const globalConfig: GlobalConfig = this.config.global || {};
         if(this.config.discoverAllAccessories === true) {
-            return searchAllDevices(globalConfig, accessoryConfigs);
+            return searchAllDevices(globalConfig, accessoryConfigs, this.log);
         }
-        return Promise.all(accessoryConfigs.map((ac) => deviceFromConfig(globalConfig, ac)));
+        return Promise.all(accessoryConfigs.map((ac) => deviceFromConfig(globalConfig, ac, this.log)));
     }
 }

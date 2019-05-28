@@ -1,4 +1,5 @@
 export interface GlobalConfig {
+    readonly verbose?: boolean;
     readonly volume?: VolumeConfig;
     readonly presets?: PresetConfig[];
     readonly sources?: SourceConfig[];
