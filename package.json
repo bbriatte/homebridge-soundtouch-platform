@@ -9,8 +9,10 @@
     "soundtouch",
     "volume",
     "lighthub",
+    "speaker",
     "presets",
-    "switch"
+    "switch",
+    "bose"
   ],
   "repository": {
     "type": "git",
@@ -22,11 +24,11 @@
   "author": "bbriatte",
   "license": "BSD",
   "dependencies": {
-    "homebridge-base-platform": "^1.1.2",
+    "homebridge-base-platform": "^1.2.0",
     "soundtouch-api": "^1.0.14"
   },
   "devDependencies": {
-    "@types/node": "^11.13.11",
-    "homebridge": "^0.4.48"
+    "@types/node": "^11.13.14",
+    "homebridge": "^0.4.50"
   }
 }

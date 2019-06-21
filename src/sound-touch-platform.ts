@@ -10,11 +10,19 @@ export enum SoundTouchPlatformInfo {
 }
 
 export class SoundTouchPlatform extends HomebridgePlatform<SountTouchPlatformConfig, SoundTouchDevice, SoundTouchAccessoryWrapper> {
+
+    protected getDefaultPlatformConfig(): SountTouchPlatformConfig | undefined{
+        return {
+            platform: SoundTouchPlatformInfo.name,
+            discoverAllAccessories: true
+        };
+    }
+
     protected initPlatformSettings(): PlatformSettings {
         return {
             name: SoundTouchPlatformInfo.name,
             plugin: SoundTouchPlatformInfo.plugin,
-            deviceKeys: {
+            deviceKeyMapping: {
                 name: 'name',
                 id: 'id'
             }

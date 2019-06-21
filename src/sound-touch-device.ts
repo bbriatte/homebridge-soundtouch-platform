@@ -96,7 +96,7 @@ export async function deviceIsOn(device: SoundTouchDevice): Promise<boolean> {
 }
 
 async function _availablePresets(api: API, deviceName: string, accessoryPresets: PresetConfig[], globalPresets: PresetConfig[], log?: Logger): Promise<SoundTouchPreset[]> {
-    const presets = await api.getPresets();
+    const presets = (await api.getPresets()) || [];
     return compactMap(presets, (preset) => {
         const presetConfig = _findConfig((p) => p.index === preset.id, accessoryPresets, globalPresets) || {index: preset.id};
         if(log !== undefined) {
