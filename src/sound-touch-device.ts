@@ -2,7 +2,7 @@ import {AccessoryConfig, GlobalConfig, PresetConfig, SourceConfig, VolumeMode} f
 import {API, APIDiscovery, compactMap, Info, SourceStatus} from 'soundtouch-api';
 import {apiNotFoundWithName} from './errors';
 import {stringUpperCaseFirst} from './utils';
-import {Logger} from 'homebridge-base-platform/dist/logger';
+import {Logging} from "homebridge";
 
 export interface SoundTouchPreset {
     readonly name: string;
@@ -34,7 +34,7 @@ export interface SoundTouchDevice {
     readonly sources: SoundTouchSource[];
 }
 
-export async function searchAllDevices(globalConfig: GlobalConfig, accessoryConfigs: AccessoryConfig[], log?: Logger): Promise<SoundTouchDevice[]> {
+export async function searchAllDevices(globalConfig: GlobalConfig, accessoryConfigs: AccessoryConfig[], log?: Logging): Promise<SoundTouchDevice[]> {
     const apis = await APIDiscovery.search();
     return Promise.all(apis.map(async (api) => {
         const info = await api.getInfo();
@@ -43,7 +43,7 @@ export async function searchAllDevices(globalConfig: GlobalConfig, accessoryConf
     }));
 }
 
-export async function deviceFromConfig(globalConfig: GlobalConfig, accessoryConfig: AccessoryConfig, log: Logger): Promise<SoundTouchDevice> {
+export async function deviceFromConfig(globalConfig: GlobalConfig, accessoryConfig: AccessoryConfig, log: Logging): Promise<SoundTouchDevice> {
     let api: API;
     if(accessoryConfig.ip) {
         api = new API(accessoryConfig.ip, accessoryConfig.port);
@@ -56,7 +56,7 @@ export async function deviceFromConfig(globalConfig: GlobalConfig, accessoryConf
     return _deviceFromApi(api, await api.getInfo(), globalConfig, accessoryConfig, log);
 }
 
-async function _deviceFromApi(api: API, info: Info, globalConfig: GlobalConfig, accessoryConfig: AccessoryConfig, log: Logger): Promise<SoundTouchDevice> {
+async function _deviceFromApi(api: API, info: Info, globalConfig: GlobalConfig, accessoryConfig: AccessoryConfig, log: Logging): Promise<SoundTouchDevice> {
     const displayName = accessoryConfig.name || info.name;
     const verbose = globalConfig.verbose || accessoryConfig.verbose || false;
     if(verbose === true) {
@@ -95,7 +95,7 @@ export async function deviceIsOn(device: SoundTouchDevice): Promise<boolean> {
     return nowPlaying.source !== SourceStatus.standBy;
 }
 
-async function _availablePresets(api: API, deviceName: string, accessoryPresets: PresetConfig[], globalPresets: PresetConfig[], log?: Logger): Promise<SoundTouchPreset[]> {
+async function _availablePresets(api: API, deviceName: string, accessoryPresets: PresetConfig[], globalPresets: PresetConfig[], log?: Logging): Promise<SoundTouchPreset[]> {
     const presets = (await api.getPresets()) || [];
     return compactMap(presets, (preset) => {
         const presetConfig = _findConfig((p) => p.index === preset.id, accessoryPresets, globalPresets) || {index: preset.id};
@@ -112,7 +112,7 @@ async function _availablePresets(api: API, deviceName: string, accessoryPresets:
     });
 }
 
-async function _availableSources(api: API, deviceName: string, accessorySources?: SourceConfig[], globalSources?: SourceConfig[], log?: Logger): Promise<SoundTouchSource[]> {
+async function _availableSources(api: API, deviceName: string, accessorySources?: SourceConfig[], globalSources?: SourceConfig[], log?: Logging): Promise<SoundTouchSource[]> {
     const sources = await api.getSources();
     const localSources = sources.items.filter((src) => src.isLocal);
     return localSources.map((ls) => {

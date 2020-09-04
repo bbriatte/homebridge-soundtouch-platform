@@ -1,8 +1,14 @@
 import {AccessoryConfig, GlobalConfig} from './accessory-config';
 import {SoundTouchAccessoryWrapper} from './sound-touch-accessory-wrapper';
 import {deviceFromConfig, searchAllDevices, SoundTouchDevice} from './sound-touch-device';
-import {HomebridgeAccessoryWrapperConstructor, HomebridgePlatform, PlatformSettings} from 'homebridge-base-platform';
+import {
+    DefaultDeviceKeyMapping,
+    HomebridgeAccessoryWrapperConstructor,
+    HomebridgePlatform,
+    PlatformSettings
+} from 'homebridge-base-platform';
 import {SountTouchPlatformConfig} from './platform-config';
+import {API, Logging} from "homebridge";
 
 export enum SoundTouchPlatformInfo {
     plugin = 'homebridge-soundtouch-platform',
@@ -10,6 +16,10 @@ export enum SoundTouchPlatformInfo {
 }
 
 export class SoundTouchPlatform extends HomebridgePlatform<SountTouchPlatformConfig, SoundTouchDevice, SoundTouchAccessoryWrapper> {
+
+    public constructor(logger: Logging, config: SountTouchPlatformConfig, api: API) {
+        super(logger, config, api);
+    }
 
     protected getDefaultPlatformConfig(): SountTouchPlatformConfig | undefined{
         return {
@@ -22,10 +32,7 @@ export class SoundTouchPlatform extends HomebridgePlatform<SountTouchPlatformCon
         return {
             name: SoundTouchPlatformInfo.name,
             plugin: SoundTouchPlatformInfo.plugin,
-            deviceKeyMapping: {
-                name: 'name',
-                id: 'id'
-            }
+            deviceKeyMapping: DefaultDeviceKeyMapping
         }
     }
 
@@ -34,8 +41,8 @@ export class SoundTouchPlatform extends HomebridgePlatform<SountTouchPlatformCon
     }
 
     protected async searchDevices(): Promise<SoundTouchDevice[]> {
-        const accessoryConfigs: AccessoryConfig[] = this.config.accessories || [];
-        const globalConfig: GlobalConfig = this.config.global || {};
+        const accessoryConfigs: AccessoryConfig[] = this.config.accessories || [];
+        const globalConfig: GlobalConfig = this.config.global || {};
         if(this.config.discoverAllAccessories === true) {
             return searchAllDevices(globalConfig, accessoryConfigs, this.log);
         }

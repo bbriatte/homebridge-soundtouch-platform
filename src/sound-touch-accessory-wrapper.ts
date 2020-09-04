@@ -4,7 +4,8 @@ import {SoundTouchVolume} from './sound-touch-volume';
 import {SoundTouchSpeakerVolume} from './sound-touch-speaker-volume';
 import {VolumeMode} from './accessory-config';
 import {SoundTouchLightbulbVolume} from './sound-touch-lightbulb-volume';
-import {callbackify, Context, HomebridgeAccessoryWrapper} from 'homebridge-base-platform';
+import {callbackify, HomebridgeContextProps, HomebridgeAccessoryWrapper} from 'homebridge-base-platform';
+import {PlatformAccessory, Service} from "homebridge";
 
 interface SoundTouchSelectedSource {
     readonly sourceItem?: ContentItem;
@@ -14,10 +15,10 @@ interface SoundTouchSelectedSource {
 export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<SoundTouchDevice> implements DeviceOnOffListener {
 
     private readonly volume?: SoundTouchVolume;
-    private readonly onService: any;
-    private readonly presetServices: any[];
-    private readonly sourceServices: any[];
-    private readonly informationService: any;
+    private readonly onService: Service;
+    private readonly presetServices: Service[];
+    private readonly sourceServices: Service[];
+    private readonly informationService: Service;
 
     private static readonly presetValues: KeyValue[] = [
         KeyValue.preset1,
@@ -28,7 +29,7 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         KeyValue.preset6
     ];
 
-    constructor(context: Context, accessory: any, device: SoundTouchDevice) {
+    constructor(context: HomebridgeContextProps, accessory: PlatformAccessory, device: SoundTouchDevice) {
         super(context, accessory, device);
 
         this.informationService = this.initInformationService();
@@ -56,7 +57,7 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         return undefined;
     }
 
-    private initOnService(): any {
+    private initOnService(): Service {
         const onService = this.getService(this.Service.Switch, this.getDisplayName(), 'onService');
         onService
             .getCharacteristic(this.Characteristic.On)
@@ -69,7 +70,7 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         return onService;
     }
 
-    private initPresetServices(): any[] {
+    private initPresetServices(): Service[] {
         const presetServices = [];
         for(let i = 1; i <= 6; i++) {
             const presetType = _presetIndexToServiceType(i);
@@ -87,7 +88,7 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         return presetServices;
     }
 
-    private initSourceServices(): any[] {
+    private initSourceServices(): Service[] {
         const sourceServices = [];
         for(let src of this.device.sources) {
             const sourceType = _sourceToServiceType(src.source, src.account);
@@ -104,7 +105,7 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         return sourceServices;
     }
 
-    private initInformationService(): any {
+    private initInformationService(): Service {
         const informationService = this.accessory.getService(this.Service.AccessoryInformation);
         informationService
             .setCharacteristic(this.Characteristic.Name, this.getDisplayName())
@@ -248,7 +249,7 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         }
     }
 
-    private switchService(on: boolean, type: string, services: any[]) {
+    private switchService(on: boolean, type: string, services: Service[]) {
         for(const service of services) {
             if(service.subtype === type) {
                 service.getCharacteristic(this.Characteristic.On).updateValue(on);

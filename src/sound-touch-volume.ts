@@ -1,12 +1,13 @@
 import {KeyValue, SourceStatus} from 'soundtouch-api';
 import {deviceIsOn, DeviceOnOffListener, SoundTouchDevice} from './sound-touch-device';
 import {callbackify, HomebridgeAccessoryWrapper} from 'homebridge-base-platform';
+import {Characteristic, Service} from 'homebridge';
 
 export abstract class SoundTouchVolume {
 
     protected readonly device: SoundTouchDevice;
     protected readonly accessoryWrapper: HomebridgeAccessoryWrapper<SoundTouchDevice> & DeviceOnOffListener;
-    protected readonly service: any;
+    protected readonly service: Service;
 
     public constructor(device: SoundTouchDevice, accessoryWrapper: HomebridgeAccessoryWrapper<SoundTouchDevice> & DeviceOnOffListener) {
         this.device = device;
@@ -24,11 +25,11 @@ export abstract class SoundTouchVolume {
             .on('change', this.volumeChange.bind(this));
     }
 
-    protected abstract initService(): any;
+    protected abstract initService(): Service;
 
-    public abstract getVolumeCharacteristic(): any;
+    public abstract getVolumeCharacteristic(): Characteristic;
 
-    public abstract getMuteCharacteristic(): any;
+    public abstract getMuteCharacteristic(): Characteristic;
 
     public async isNotMuted(): Promise<boolean> {
         const nowPlaying = await this.device.api.getNowPlaying();
@@ -67,7 +68,7 @@ export abstract class SoundTouchVolume {
         const volumeCharacteristic = this.getVolumeCharacteristic();
         const secureVolume = this.secureVolume(volumeCharacteristic, {
             newValue: volume,
-            oldValue: volumeCharacteristic.value
+            oldValue: volumeCharacteristic.value as number
         });
         if(secureVolume !== undefined) {
             volume = secureVolume;
@@ -79,7 +80,7 @@ export abstract class SoundTouchVolume {
         return this.device.api.setVolume(volume);
     }
 
-    private secureVolume(characteristic: any, change: {newValue: number, oldValue: number}): number | undefined {
+    private secureVolume(characteristic: Characteristic, change: {newValue: number, oldValue: number}): number | undefined {
         const maxValue = characteristic.props.maxValue;
         if(change.newValue === maxValue && change.oldValue <= maxValue / 2) {
             return Math.max(change.oldValue, this.device.volumeSettings.unmuteValue);

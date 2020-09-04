@@ -1,9 +1,10 @@
 import {SoundTouchVolume} from './sound-touch-volume';
 import {HomebridgeAccessoryWrapper} from 'homebridge-base-platform';
 import {SoundTouchDevice} from './sound-touch-device';
+import {Service, Characteristic} from 'homebridge';
 
 export class SoundTouchSpeakerVolume extends SoundTouchVolume {
-    protected initService(): any {
+    protected initService(): Service {
         const Characteristic = this.accessoryWrapper.Characteristic;
         const Service = this.accessoryWrapper.Service;
         const volumeService = this.accessoryWrapper.getService(Service.Speaker, this.accessoryWrapper.getDisplayName() + ' Volume', 'volumeService');
@@ -18,12 +19,12 @@ export class SoundTouchSpeakerVolume extends SoundTouchVolume {
         accessoryWrapper.removeService(accessoryWrapper.Service.Speaker, 'volumeService');
     }
 
-    public getVolumeCharacteristic(): any {
+    public getVolumeCharacteristic(): Characteristic {
         const Characteristic = this.accessoryWrapper.Characteristic;
         return this.service.getCharacteristic(Characteristic.Volume);
     }
 
-    public getMuteCharacteristic(): any {
+    public getMuteCharacteristic(): Characteristic {
         const Characteristic = this.accessoryWrapper.Characteristic;
         return this.service.getCharacteristic(Characteristic.Mute);
     }
