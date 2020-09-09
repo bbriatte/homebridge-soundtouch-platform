@@ -1,6 +1,7 @@
 # homebridge-soundtouch-platform
 
 [![npm version](https://badge.fury.io/js/homebridge-soundtouch-platform.svg)](https://badge.fury.io/js/homebridge-soundtouch-platform)
+[![npm downloads](https://badgen.net/npm/dt/homebridge-soundtouch-platform)](https://badgen.net/npm/dt/homebridge-soundtouch-platform)
 
 [Bose SoundTouch](https://www.bose.com/soundtouch-systems.html) plugin for [Homebridge](https://github.com/nfarina/homebridge)
 
@@ -18,7 +19,10 @@ Example `config.json` to discover all SoundTouch accessories
 {
     "platform": "SoundTouchPlatform",
     "name": "SoundTouch",
-    "discoverAllAccessories": true
+    "discoverAllAccessories": true,
+    "global": {
+        "pollingInterval": 2000
+    }
 }
 ```
 
@@ -66,6 +70,7 @@ Example `config.json` for multiple speakers and presets:
         {
             "name": "Speaker Kitchen",
             "room": "Kitchen",
+            "pollingInterval": 2000,
             "verbose": true,
             "volume": {
               "mode": "speaker"
@@ -103,7 +108,7 @@ Example `config.json` for multiple speakers and presets:
 * `accessories`: Array of **Accessory element**
 * `global`: Default configuration for all accessories. see **Global element**
 
-### Accessory element
+### global element
 *Optional fields*
 * `name`: The name you want to use to control the SoundTouch.
 * `room`: Should match exactly with the name of the SoundTouch device.
@@ -145,8 +150,8 @@ Example `config.json` for multiple speakers and presets:
 ### Global element
 *Optional fields*
 * `verbose`: Log all device information
+* `pollingInterval`: If set, poll the device each interval
 * `volume`: see **Volume element**
 * `presets`: Contains all presets action that you want to trigger or not using HomeKit on all devices. Adds a switch for each preset with the given name.
  Preset index start from 1 to 6 included. see **Preset element**
 * `sources`: Contains all sources action that you want to trigger or not using HomeKit on all devices. Adds a switch for each source with the given name. see **Source element**
-  

@@ -3,6 +3,7 @@ import {API, APIDiscovery, compactMap, Info, SourceStatus} from 'soundtouch-api'
 import {apiNotFoundWithName} from './errors';
 import {stringUpperCaseFirst} from './utils';
 import {Logging} from "homebridge";
+import {BaseDevice, isVerboseInConfigs} from "homebridge-base-platform";
 
 export interface SoundTouchPreset {
     readonly name: string;
@@ -23,18 +24,18 @@ export interface SoundTouchVolumeSettings {
     readonly mode: VolumeMode;
 }
 
-export interface SoundTouchDevice {
+export interface SoundTouchDevice extends BaseDevice {
     readonly api: API;
-    readonly name: string;
-    readonly id: string;
     readonly model: string;
+    readonly verbose: boolean;
+    readonly pollingInterval?: number;
     readonly version?: string;
     readonly volumeSettings: SoundTouchVolumeSettings;
     readonly presets: SoundTouchPreset[];
     readonly sources: SoundTouchSource[];
 }
 
-export async function searchAllDevices(globalConfig: GlobalConfig, accessoryConfigs: AccessoryConfig[], log?: Logging): Promise<SoundTouchDevice[]> {
+export async function searchAllDevices(globalConfig: GlobalConfig, accessoryConfigs: AccessoryConfig[], log: Logging): Promise<SoundTouchDevice[]> {
     const apis = await APIDiscovery.search();
     return Promise.all(apis.map(async (api) => {
         const info = await api.getInfo();
@@ -58,26 +59,29 @@ export async function deviceFromConfig(globalConfig: GlobalConfig, accessoryConf
 
 async function _deviceFromApi(api: API, info: Info, globalConfig: GlobalConfig, accessoryConfig: AccessoryConfig, log: Logging): Promise<SoundTouchDevice> {
     const displayName = accessoryConfig.name || info.name;
-    const verbose = globalConfig.verbose || accessoryConfig.verbose || false;
-    if(verbose === true) {
+    const isVerbose = isVerboseInConfigs(globalConfig, accessoryConfig);
+    const pollingInterval = accessoryConfig.pollingInterval || globalConfig.pollingInterval;
+    if(isVerbose) {
         log(`[${displayName}] Found device`);
     }
     const component = info.components.find((c) => c.serialNumber.toLowerCase() === info.deviceId.toLowerCase());
-    const presets = await _availablePresets(api, displayName, accessoryConfig.presets, globalConfig.presets, verbose === true ? log : undefined);
-    const sources = await _availableSources(api, displayName, accessoryConfig.sources, globalConfig.sources, verbose === true ? log : undefined);
+    const presets = await _availablePresets(api, displayName, accessoryConfig.presets, globalConfig.presets, isVerbose ? log : undefined);
+    const sources = await _availableSources(api, displayName, accessoryConfig.sources, globalConfig.sources, isVerbose ? log : undefined);
     const globalVolume = globalConfig.volume || {};
     const accessoryVolume = accessoryConfig.volume || {};
-    const onValue =  globalVolume.onValue || accessoryVolume.onValue;
+    const onValue =  globalVolume.onValue || accessoryVolume.onValue;
     return {
         api: api,
         name: displayName,
         id: info.deviceId,
         model: info.type,
         version: component ? component.softwareVersion : undefined,
+        verbose: isVerbose,
+        pollingInterval: pollingInterval,
         volumeSettings: {
             onValue: onValue || -1,
             maxValue: globalVolume.maxValue || accessoryVolume.maxValue || 100,
-            unmuteValue: globalVolume.unmuteValue || accessoryVolume.unmuteValue || onValue || 35,
+            unmuteValue: globalVolume.unmuteValue || accessoryVolume.unmuteValue || onValue || 35,
             mode: globalVolume.mode || accessoryVolume.mode || VolumeMode.lightbulb
         },
         presets: presets,

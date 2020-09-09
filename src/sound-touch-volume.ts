@@ -46,7 +46,9 @@ export abstract class SoundTouchVolume {
         if(isOn) {
             const volume = await this.device.api.getVolume();
             if((unmute && volume.isMuted) || (!unmute && !volume.isMuted)) {
-                this.accessoryWrapper.log(`[${this.accessoryWrapper.getDisplayName()}] ${unmute ? 'Unmuted' : 'Muted'}`);
+                if(this.device.verbose) {
+                    this.accessoryWrapper.log(`[${this.accessoryWrapper.getDisplayName()}] ${unmute ? 'Unmuted' : 'Muted'}`);
+                }
                 return this.device.api.pressKey(KeyValue.mute);
             }
         } else if(unmute) {
@@ -60,7 +62,9 @@ export abstract class SoundTouchVolume {
 
     public async getVolume(): Promise<number> {
         const volume = await this.device.api.getVolume();
-        this.accessoryWrapper.log(`[${this.accessoryWrapper.getDisplayName()}] Current volume ${volume.actual}`);
+        if(this.device.verbose) {
+            this.accessoryWrapper.log(`[${this.accessoryWrapper.getDisplayName()}] Current volume ${volume.actual}`);
+        }
         return volume.actual;
     }
 
@@ -73,7 +77,9 @@ export abstract class SoundTouchVolume {
         if(secureVolume !== undefined) {
             volume = secureVolume;
         }
-        this.accessoryWrapper.log(`[${this.accessoryWrapper.getDisplayName()}] Volume change to ${volume}`);
+        if(this.device.verbose) {
+            this.accessoryWrapper.log(`[${this.accessoryWrapper.getDisplayName()}] Volume change to ${volume}`);
+        }
         if(updateCharacteristic === true) {
             volumeCharacteristic.updateValue(volume);
         }
@@ -87,6 +93,7 @@ export abstract class SoundTouchVolume {
         }
         return undefined;
     }
+
 
     protected volumeChange(change: {newValue: number, oldValue: number}) {
         const volumeCharacteristic = this.getVolumeCharacteristic();

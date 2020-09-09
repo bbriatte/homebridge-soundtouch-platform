@@ -1,5 +1,7 @@
-export interface GlobalConfig {
-    readonly verbose?: boolean;
+import {BaseGlobalConfig} from "homebridge-base-platform";
+
+export interface GlobalConfig extends BaseGlobalConfig {
+    readonly pollingInterval?: number;
     readonly volume?: VolumeConfig;
     readonly presets?: PresetConfig[];
     readonly sources?: SourceConfig[];

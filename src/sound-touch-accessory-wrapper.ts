@@ -38,7 +38,16 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         this.presetServices = this.initPresetServices();
         this.sourceServices = this.initSourceServices();
 
-        this.log(`[${this.getDisplayName()}] Accessory ready`);
+        if(this.device.verbose === true) {
+            this.log(`[${this.getDisplayName()}] Device ready`);
+        }
+        if(this.device.pollingInterval !== undefined) {
+            this._refreshDeviceServices().then(() => this.log('Infinite loop'));
+        }
+    }
+
+    public getDisplayName(): string {
+        return this.device.name;
     }
 
     private initVolumeService(): SoundTouchVolume | undefined {
@@ -63,7 +72,9 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
             .getCharacteristic(this.Characteristic.On)
             .on('get', callbackify(async () => {
                 const isOn = await deviceIsOn(this.device);
-                this.log(`[${this.getDisplayName()}] ${isOn ? 'Is on' : 'Is off'}`);
+                if(this.device.verbose) {
+                    this.log(`[${this.getDisplayName()}] ${isOn ? 'Is on' : 'Is off'}`);
+                }
                 return isOn;
             }))
             .on('set', callbackify(this.setOn.bind(this)));
@@ -181,7 +192,9 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         const selectedPreset = await this.getSelectedSource();
         if(selectedPreset !== undefined) {
             if(selectedPreset.presetIndex === index) {
-                this.log(`[${this.getDisplayName()}] Current preset n°${index}`);
+                if(this.device.verbose) {
+                    this.log(`[${this.getDisplayName()}] Current preset n°${index}`);
+                }
                 return true;
             }
         }
@@ -204,7 +217,9 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
                 return false;
             }
             if (success) {
-                this.log(`[${this.getDisplayName()}] Set preset n°${index}`);
+                if(this.device.verbose) {
+                    this.log(`[${this.getDisplayName()}] Set preset n°${index}`);
+                }
                 this.switchSelectedSource(false, selectedSource);
             }
         } else {
@@ -215,7 +230,9 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
 
     public async deviceDidTurnOn(updateOn?: boolean, updateVolume?: boolean): Promise<boolean> {
         let success = true;
-        this.log(`[${this.getDisplayName()}] Turn on`);
+        if(this.device.verbose) {
+            this.log(`[${this.getDisplayName()}] Turn on`);
+        }
         if(updateOn === true) {
             this.onService.getCharacteristic(this.Characteristic.On).updateValue(true);
             if(this.volume !== undefined) {
@@ -229,7 +246,9 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
     }
 
     public async deviceDidTurnOff(updateOn?: boolean, updateVolume?: boolean): Promise<boolean> {
-        this.log(`[${this.getDisplayName()}] Turn off`);
+        if(this.device.verbose) {
+            this.log(`[${this.getDisplayName()}] Turn off`);
+        }
         if(updateOn === true) {
             this.onService.getCharacteristic(this.Characteristic.On).updateValue(false);
         }
@@ -271,7 +290,9 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         if(selectedSource !== undefined) {
             const sourceItem = selectedSource.sourceItem;
             if(sourceItem !== undefined && sourceItem.source === source && sourceItem.sourceAccount === account) {
-                this.log(`[${this.getDisplayName()}] Current source: '${source}', account: '${account}'`);
+                if(this.device.verbose) {
+                    this.log(`[${this.getDisplayName()}] Current source: '${source}', account: '${account}'`);
+                }
                 return true;
             }
         }
@@ -294,13 +315,47 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
                 sourceAccount: account
             });
             if(success) {
-                this.log(`[${this.getDisplayName()}] Select source: '${source}', account: '${account}'`);
+                if(this.device.verbose) {
+                    this.log(`[${this.getDisplayName()}] Select source: '${source}', account: '${account}'`);
+                }
                 this.switchSelectedSource(false, selectedSource);
             }
         } else {
             success = await this.setOn(on,true);
         }
         return success;
+    }
+
+    private async _refreshDeviceServices(): Promise<void> {
+        await new Promise(((resolve) => setTimeout(resolve, this.device.pollingInterval)));
+        const selectedSource = await this.getSelectedSource();
+        const onCharacteristic = this.onService.getCharacteristic(this.Characteristic.On);
+        if(selectedSource !== undefined) {
+            onCharacteristic.updateValue(true);
+            this.presetServices.forEach((service) => {
+                const presetType = selectedSource.presetIndex !== undefined ? _presetIndexToServiceType(selectedSource.presetIndex) : undefined;
+                const presetOnCharacteristic = service.getCharacteristic(this.Characteristic.On);
+                presetOnCharacteristic.updateValue(service.subtype === presetType);
+            });
+            this.sourceServices.forEach((service) => {
+                const sourceType = selectedSource.sourceItem !== undefined ? _sourceToServiceType(selectedSource.sourceItem.source, selectedSource.sourceItem.sourceAccount) : undefined;
+                const sourceOnCharacteristic = service.getCharacteristic(this.Characteristic.On);
+                sourceOnCharacteristic.updateValue(service.subtype === sourceType);
+            });
+            const deviceVolume = await this.device.api.getVolume();
+            if(this.volume) {
+                this.volume.getVolumeCharacteristic().updateValue(deviceVolume.actual);
+                this.volume.getMuteCharacteristic().updateValue(!deviceVolume.isMuted);
+            }
+        } else {
+            onCharacteristic.setValue(false);
+            this.presetServices.forEach((service) => service.getCharacteristic(this.Characteristic.On).updateValue(false));
+            this.sourceServices.forEach((service) => service.getCharacteristic(this.Characteristic.On).updateValue(false));
+            if(this.volume) {
+                this.volume.getMuteCharacteristic().updateValue(false);
+            }
+        }
+        return this._refreshDeviceServices();
     }
 }
 

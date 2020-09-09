@@ -2,7 +2,6 @@ import {AccessoryConfig, GlobalConfig} from './accessory-config';
 import {SoundTouchAccessoryWrapper} from './sound-touch-accessory-wrapper';
 import {deviceFromConfig, searchAllDevices, SoundTouchDevice} from './sound-touch-device';
 import {
-    DefaultDeviceKeyMapping,
     HomebridgeAccessoryWrapperConstructor,
     HomebridgePlatform,
     PlatformSettings
@@ -31,8 +30,7 @@ export class SoundTouchPlatform extends HomebridgePlatform<SountTouchPlatformCon
     protected initPlatformSettings(): PlatformSettings {
         return {
             name: SoundTouchPlatformInfo.name,
-            plugin: SoundTouchPlatformInfo.plugin,
-            deviceKeyMapping: DefaultDeviceKeyMapping
+            plugin: SoundTouchPlatformInfo.plugin
         }
     }
 

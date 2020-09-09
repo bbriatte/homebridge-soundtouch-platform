@@ -1,7 +1,7 @@
 import {AccessoryConfig, GlobalConfig} from './accessory-config';
-import {PlatformConfig} from "homebridge";
+import {BasePlatformConfig} from "homebridge-base-platform";
 
-export interface SountTouchPlatformConfig extends PlatformConfig {
+export interface SountTouchPlatformConfig extends BasePlatformConfig {
     readonly discoverAllAccessories?: boolean;
     readonly accessories?: AccessoryConfig[];
     readonly global?: GlobalConfig;
