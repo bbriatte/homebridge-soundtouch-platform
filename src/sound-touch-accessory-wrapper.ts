@@ -171,21 +171,12 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
                 }
             }
         }
-        const selectedSource = this.device.sources.find((src) => {
-            if(src.enabled === false) {
-                return false;
+        return {
+            sourceItem: {
+                source: nowPlaying.source,
+                sourceAccount: nowPlaying.sourceAccount
             }
-            return src.source === nowPlaying.source && src.account === nowPlaying.sourceAccount;
-        });
-        if(selectedSource !== undefined) {
-            return {
-                sourceItem: {
-                    source: selectedSource.source,
-                    sourceAccount: selectedSource.account
-                }
-            };
-        }
-        return undefined;
+        };
     }
 
     private async isSelectedPreset(index: number): Promise<boolean> {
@@ -332,13 +323,13 @@ export class SoundTouchAccessoryWrapper extends HomebridgeAccessoryWrapper<Sound
         const onCharacteristic = this.onService.getCharacteristic(this.Characteristic.On);
         if(selectedSource !== undefined) {
             onCharacteristic.updateValue(true);
+            const presetType = selectedSource.presetIndex !== undefined ? _presetIndexToServiceType(selectedSource.presetIndex) : undefined;
             this.presetServices.forEach((service) => {
-                const presetType = selectedSource.presetIndex !== undefined ? _presetIndexToServiceType(selectedSource.presetIndex) : undefined;
                 const presetOnCharacteristic = service.getCharacteristic(this.Characteristic.On);
                 presetOnCharacteristic.updateValue(service.subtype === presetType);
             });
+            const sourceType = selectedSource.sourceItem !== undefined ? _sourceToServiceType(selectedSource.sourceItem.source, selectedSource.sourceItem.sourceAccount) : undefined;
             this.sourceServices.forEach((service) => {
-                const sourceType = selectedSource.sourceItem !== undefined ? _sourceToServiceType(selectedSource.sourceItem.source, selectedSource.sourceItem.sourceAccount) : undefined;
                 const sourceOnCharacteristic = service.getCharacteristic(this.Characteristic.On);
                 sourceOnCharacteristic.updateValue(service.subtype === sourceType);
             });
